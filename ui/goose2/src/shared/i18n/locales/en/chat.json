@@ -199,6 +199,8 @@
     "openFile": "Open file",
     "openFolder": "Open folder",
     "openPath": "Open path",
-    "pathOutsideRoots": "Path is outside allowed project/artifacts roots."
+    "pathOutsideRoots": "Path is outside allowed project/artifacts roots.",
+    "structuredOutput": "Structured output",
+    "structuredOutputLines": "{{count}} lines"
   }
 }

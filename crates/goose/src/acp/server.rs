@@ -6,6 +6,7 @@ use crate::agents::extension::{Envs, PLATFORM_EXTENSIONS};
 use crate::agents::extension_manager::TRUSTED_TOOL_UPDATE_META_KEY;
 use crate::agents::mcp_client::{GooseMcpHostInfo, McpClientTrait};
 use crate::agents::platform_extensions::developer::DeveloperClient;
+use crate::agents::reply_parts::is_tool_visible_to_app;
 use crate::agents::{Agent, AgentConfig, ExtensionConfig, GoosePlatform, SessionConfig};
 use crate::config::base::CONFIG_YAML_NAME;
 use crate::config::extensions::get_enabled_extensions_with_config;
@@ -28,7 +29,6 @@ use crate::providers::inventory::{
     InventoryIdentity, ProviderInventoryEntry, ProviderInventoryService, RefreshJobPlan,
     RefreshPlan, RefreshSkipReason,
 };
-use crate::agents::reply_parts::is_tool_visible_to_app;
 use crate::session::session_manager::SessionType;
 use crate::session::{EnabledExtensionsState, Session, SessionManager};
 use crate::utils::sanitize_unicode_tags;
@@ -3032,7 +3032,7 @@ impl GooseAcpAgent {
             params
         };
 
-        let ctx = goose::agents::ToolCallContext::new(internal_id, None, None);
+        let ctx = crate::agents::ToolCallContext::new(internal_id, None, None);
         let tool_result = agent
             .extension_manager
             .dispatch_tool_call(&ctx, tool_call, CancellationToken::new())

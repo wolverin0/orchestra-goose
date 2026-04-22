@@ -220,6 +220,7 @@ export function ToolCallAdapter({
   open,
   onOpenChange,
 }: ToolCallAdapterProps) {
+  const { t } = useTranslation("chat");
   const elapsed = useElapsedTime(status, startedAt);
   const state = toolStatusMap[status];
   const [structuredOutputOpen, setStructuredOutputOpen] = useState(false);
@@ -275,16 +276,18 @@ export function ToolCallAdapter({
                       structuredOutputOpen && "rotate-90",
                     )}
                   />
-                  <span>Structured output</span>
+                  <span>{t("tools.structuredOutput")}</span>
                   <span className="text-[11px] text-muted-foreground/80">
-                    {structuredOutputLineCount} lines
+                    {t("tools.structuredOutputLines", {
+                      count: structuredOutputLineCount,
+                    })}
                   </span>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-2">
                   <ToolOutput
                     output={structuredContent}
                     errorText={undefined}
-                    label="Structured Output"
+                    label={t("tools.structuredOutput")}
                     contentClassName="max-h-[28rem] overflow-auto"
                   />
                 </CollapsibleContent>
@@ -293,7 +296,7 @@ export function ToolCallAdapter({
               <ToolOutput
                 output={structuredContent}
                 errorText={undefined}
-                label="Structured Output"
+                label={t("tools.structuredOutput")}
                 contentClassName="max-h-[28rem] overflow-auto"
               />
             ))}

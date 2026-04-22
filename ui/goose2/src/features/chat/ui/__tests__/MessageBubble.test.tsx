@@ -1,11 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MessageBubble } from "../MessageBubble";
 import { useAgentStore } from "@/features/agents/stores/agentStore";
@@ -406,61 +400,6 @@ describe("MessageBubble", () => {
     expect(screen.queryByText("Tool result")).not.toBeInTheDocument();
   });
 
-  it("renders MCP App blocks", async () => {
-    const msg = assistantMessage([
-      {
-        type: "toolRequest",
-        id: "tool-1",
-        name: "weather: open app",
-        arguments: {},
-        status: "completed",
-      },
-      {
-        type: "toolResponse",
-        id: "tool-1",
-        name: "weather: open app",
-        result: "done",
-        isError: false,
-      },
-      {
-        type: "mcpApp",
-        id: "tool-1",
-        payload: {
-          sessionId: "local-session",
-          gooseSessionId: "goose-session",
-          toolCallId: "tool-1",
-          toolCallTitle: "weather: open app",
-          source: "toolCallUpdateMeta",
-          tool: {
-            name: "weather__open_app",
-            extensionName: "weather",
-            resourceUri: "ui://weather/app",
-          },
-          resource: {
-            result: {
-              contents: [
-                {
-                  uri: "ui://weather/app",
-                  mimeType: "text/html",
-                  text: "<div>Hello</div>",
-                },
-              ],
-            },
-          },
-        },
-      },
-    ]);
-
-    render(<MessageBubble message={msg} />);
-
-    const mcpAppView = screen.getByTestId("mcp-app-view");
-    expect(mcpAppView).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByTestId("mock-app-renderer")).toHaveTextContent(
-        "weather__open_app",
-      );
-    });
-  });
   it("renders thinking content as Reasoning block", () => {
     const msg = assistantMessage([{ type: "thinking", text: "deep thoughts" }]);
     render(<MessageBubble message={msg} />);

@@ -5,14 +5,8 @@ export interface GooseServeHostInfo {
   secretKey: string;
 }
 
-let hostInfoPromise: Promise<GooseServeHostInfo> | null = null;
-
 export async function getGooseServeHostInfo(): Promise<GooseServeHostInfo> {
-  if (!hostInfoPromise) {
-    hostInfoPromise = invoke<GooseServeHostInfo>("get_goose_serve_host_info");
-  }
-
-  return hostInfoPromise;
+  return invoke<GooseServeHostInfo>("get_goose_serve_host_info");
 }
 
 export async function postGooseServeJson<TResponse>(
