@@ -60,6 +60,10 @@ pub struct CodexProvider {
 }
 
 impl CodexProvider {
+    fn verbosity_override(model_name: &str) -> Option<&'static str> {
+        model_name.starts_with("gpt-5").then_some("medium")
+    }
+
     fn supports_reasoning_effort(model_name: &str, reasoning_effort: &str) -> bool {
         if !CODEX_REASONING_LEVELS.contains(&reasoning_effort) {
             return false;
@@ -147,6 +151,10 @@ impl CodexProvider {
             "model_reasoning_effort=\"{}\"",
             self.reasoning_effort
         ));
+        if let Some(verbosity) = Self::verbosity_override(&self.model.model_name) {
+            cmd.arg("-c")
+                .arg(format!("model_verbosity=\"{verbosity}\""));
+        }
 
         for override_config in &self.mcp_config_overrides {
             cmd.arg("-c").arg(override_config);
@@ -1013,6 +1021,19 @@ mod tests {
             "gpt-5.2-codex",
             "xhigh"
         ));
+    }
+
+    #[test]
+    fn test_verbosity_override_for_gpt5_models() {
+        assert_eq!(
+            CodexProvider::verbosity_override("gpt-5.2-codex"),
+            Some("medium")
+        );
+        assert_eq!(
+            CodexProvider::verbosity_override("gpt-5.1-codex-max"),
+            Some("medium")
+        );
+        assert_eq!(CodexProvider::verbosity_override("o4-mini"), None);
     }
 
     #[test]

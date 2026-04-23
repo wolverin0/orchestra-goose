@@ -2387,7 +2387,9 @@ impl GooseAcpAgent {
                             .cloned()
                             .unwrap_or(ReplayToolChainMeta {
                                 chain_id: tool_request.id.clone(),
-                                summary: summarize_tool_chain(&[fallback_title.clone()]),
+                                summary: summarize_tool_chain(std::slice::from_ref(
+                                    &fallback_title,
+                                )),
                             });
 
                         cx.send_notification(SessionNotification::new(
