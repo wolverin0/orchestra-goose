@@ -162,17 +162,17 @@ function getToolGroupTitle(toolItems: ToolChainItem[]): string {
 }
 
 function getToolGroupStatus(toolItems: ToolChainItem[]): ToolCallStatus {
-  if (toolItems.some((item) => getToolItemStatus(item) === "executing")) {
-    return "executing";
-  }
-  if (toolItems.some((item) => getToolItemStatus(item) === "pending")) {
-    return "pending";
-  }
   if (toolItems.some((item) => getToolItemStatus(item) === "error")) {
     return "error";
   }
   if (toolItems.some((item) => getToolItemStatus(item) === "stopped")) {
     return "stopped";
+  }
+  if (toolItems.some((item) => getToolItemStatus(item) === "executing")) {
+    return "executing";
+  }
+  if (toolItems.some((item) => getToolItemStatus(item) === "pending")) {
+    return "pending";
   }
   return "completed";
 }

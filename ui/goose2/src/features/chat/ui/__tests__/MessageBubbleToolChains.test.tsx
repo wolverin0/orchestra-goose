@@ -168,4 +168,41 @@ describe("MessageBubble tool chains", () => {
 
     expect(screen.getByText("Read main.js")).toBeInTheDocument();
   });
+
+  it("shows a failed grouped chain even when another step is still pending", () => {
+    const msg = assistantMessage([
+      {
+        type: "toolRequest",
+        id: "tool-1",
+        chainId: "chain-1",
+        chainSummary: "working",
+        name: "Edit main.swift",
+        arguments: {},
+        status: "completed",
+      },
+      {
+        type: "toolResponse",
+        id: "tool-1",
+        chainId: "chain-1",
+        chainSummary: "working",
+        name: "Edit main.swift",
+        result: "permission denied",
+        isError: true,
+      },
+      {
+        type: "toolRequest",
+        id: "tool-2",
+        chainId: "chain-1",
+        chainSummary: "working",
+        name: "Edit README.md",
+        arguments: {},
+        status: "pending",
+      },
+    ]);
+
+    render(<MessageBubble message={msg} />);
+
+    expect(screen.getByText("working through 2 steps")).toBeInTheDocument();
+    expect(screen.getByText("Error")).toBeInTheDocument();
+  });
 });
