@@ -65,6 +65,44 @@ describe("MessageBubble", () => {
     expect(screen.getByText("hello world")).toBeInTheDocument();
   });
 
+  it("hides assistant-only blocks from user messages", () => {
+    render(
+      <MessageBubble
+        message={userMessage("Visible prompt", {
+          content: [
+            {
+              type: "text",
+              text: "Internal prompt",
+              annotations: { audience: ["assistant"] },
+            },
+            { type: "text", text: "Visible prompt" },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("Internal prompt")).not.toBeInTheDocument();
+    expect(screen.getByText("Visible prompt")).toBeInTheDocument();
+  });
+
+  it("hides assistant-only blocks from assistant messages", () => {
+    render(
+      <MessageBubble
+        message={assistantMessage([
+          {
+            type: "text",
+            text: "Internal note",
+            annotations: { audience: ["assistant"] },
+          },
+          { type: "text", text: "Visible reply" },
+        ])}
+      />,
+    );
+
+    expect(screen.queryByText("Internal note")).not.toBeInTheDocument();
+    expect(screen.getByText("Visible reply")).toBeInTheDocument();
+  });
+
   it("renders compaction notifications as centered success messages", () => {
     const { container } = render(
       <MessageBubble
@@ -317,10 +355,10 @@ describe("MessageBubble", () => {
     expect(screen.getByTitle("Claude")).toBeInTheDocument();
   });
 
-  it("renders identity for an in-progress assistant message with a provider", () => {
+  it("renders identity for an in-progress assistant message with visible content and a provider", () => {
     render(
       <MessageBubble
-        message={assistantMessage([], {
+        message={assistantMessage([{ type: "text", text: "Working..." }], {
           metadata: { completionStatus: "inProgress", providerId: "codex-acp" },
         })}
         isStreaming

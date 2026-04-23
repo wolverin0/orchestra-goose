@@ -86,6 +86,13 @@ interface ContentSection {
   items: MessageContent[] | ToolChainItem[];
 }
 
+function filterUserVisibleContent(content: MessageContent[]): MessageContent[] {
+  return content.filter((block) => {
+    const audience = block.annotations?.audience;
+    return !audience || audience.length === 0 || audience.includes("user");
+  });
+}
+
 function findMatchingToolChainIndex(
   items: ToolChainItem[],
   response: ToolResponseContent,
@@ -282,7 +289,9 @@ export const MessageBubble = memo(function MessageBubble({
 }: MessageBubbleProps) {
   const { t } = useTranslation(["chat", "common"]);
   const { formatDate } = useLocaleFormatting();
-  const { role, content, created } = message;
+  const { role, content: rawContent, created } = message;
+  const content =
+    role === "system" ? rawContent : filterUserVisibleContent(rawContent);
   const { handleContentClick, pathNotice } = useArtifactLinkHandler();
   const persona = useAgentStore((state) =>
     message.metadata?.personaId
@@ -311,6 +320,11 @@ export const MessageBubble = memo(function MessageBubble({
     );
   }
 
+  const messageAttachments = message.metadata?.attachments ?? [];
+  if (content.length === 0 && messageAttachments.length === 0) {
+    return null;
+  }
+
   const isUser = role === "user";
   const hasToolContent = content.some(
     (block) => block.type === "toolRequest" || block.type === "toolResponse",
@@ -333,7 +347,6 @@ export const MessageBubble = memo(function MessageBubble({
     !isUser &&
       (assistantDisplayName || personaAvatarUrl || assistantProviderIcon),
   );
-  const messageAttachments = message.metadata?.attachments ?? [];
   const timestamp = (
     <span
       data-role="message-timestamp"
