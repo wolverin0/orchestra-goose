@@ -229,26 +229,16 @@ async function applyTheme(resolvedThemeName: SyntaxThemeName) {
     modified: info.modified,
   });
 
-  const root = document.documentElement;
-  for (const [key, value] of Object.entries(vars)) {
-    root.style.setProperty(key, value);
-  }
-  applyResolvedMode(isDark);
-
   const cachedTheme: CachedThemeState = {
     isDark,
     resolvedThemeName,
     vars,
   };
-  window.localStorage.setItem(
-    THEME_CACHE_STORAGE_KEY,
-    JSON.stringify(cachedTheme),
-  );
 
   return cachedTheme;
 }
 
-function applyFallbackTheme(systemPrefersDark: boolean): CachedThemeState {
+function createFallbackTheme(systemPrefersDark: boolean): CachedThemeState {
   const fallbackMode = systemPrefersDark ? "dark" : "light";
   const resolvedThemeName = DEFAULT_SYSTEM_THEMES[fallbackMode];
   const fallbackTheme = BUILTIN_FALLBACK_THEMES[fallbackMode];
@@ -263,23 +253,20 @@ function applyFallbackTheme(systemPrefersDark: boolean): CachedThemeState {
     },
   );
 
-  const root = document.documentElement;
-  for (const [key, value] of Object.entries(vars)) {
-    root.style.setProperty(key, value);
-  }
-  applyResolvedMode(isDark);
-
-  const cachedTheme: CachedThemeState = {
+  return {
     isDark,
     resolvedThemeName,
     vars,
   };
-  window.localStorage.setItem(
-    THEME_CACHE_STORAGE_KEY,
-    JSON.stringify(cachedTheme),
-  );
+}
 
-  return cachedTheme;
+function commitTheme(theme: CachedThemeState) {
+  const root = document.documentElement;
+  for (const [key, value] of Object.entries(theme.vars)) {
+    root.style.setProperty(key, value);
+  }
+  applyResolvedMode(theme.isDark);
+  window.localStorage.setItem(THEME_CACHE_STORAGE_KEY, JSON.stringify(theme));
 }
 
 export function ThemeProvider({
@@ -321,8 +308,15 @@ export function ThemeProvider({
     () => getResolvedThemeName(selectedThemeName, systemPrefersDark),
     [selectedThemeName, systemPrefersDark],
   );
+  const themeLoadSignature = `${selectedThemeName ?? "system"}:${resolvedThemeName}:${systemPrefersDark}`;
+  const latestThemeLoadSignatureRef = React.useRef(themeLoadSignature);
+  const themeLoadGenerationRef = React.useRef(0);
 
-  const loadingThemeRef = React.useRef<SyntaxThemeName | null>(null);
+  if (latestThemeLoadSignatureRef.current !== themeLoadSignature) {
+    latestThemeLoadSignatureRef.current = themeLoadSignature;
+    themeLoadGenerationRef.current += 1;
+  }
+  const themeLoadGeneration = themeLoadGenerationRef.current;
 
   React.useEffect(() => {
     if (selectedThemeName) {
@@ -368,25 +362,23 @@ export function ThemeProvider({
   }, [density]);
 
   React.useEffect(() => {
-    loadingThemeRef.current = resolvedThemeName;
     setIsLoading(true);
 
     void (async () => {
-      let nextIsDark: boolean;
+      let nextTheme: CachedThemeState;
 
       try {
-        const nextTheme = await applyTheme(resolvedThemeName);
-        nextIsDark = nextTheme.isDark;
+        nextTheme = await applyTheme(resolvedThemeName);
       } catch {
-        const fallbackTheme = applyFallbackTheme(systemPrefersDark);
-        nextIsDark = fallbackTheme.isDark;
+        nextTheme = createFallbackTheme(systemPrefersDark);
       }
 
-      if (loadingThemeRef.current !== resolvedThemeName) {
+      if (themeLoadGenerationRef.current !== themeLoadGeneration) {
         return;
       }
 
-      setIsDark(nextIsDark);
+      commitTheme(nextTheme);
+      setIsDark(nextTheme.isDark);
       setIsLoading(false);
       if (selectedThemeName) {
         applyAccentColor(
@@ -397,7 +389,12 @@ export function ThemeProvider({
         clearAccentColor();
       }
     })();
-  }, [resolvedThemeName, selectedThemeName, systemPrefersDark]);
+  }, [
+    resolvedThemeName,
+    selectedThemeName,
+    systemPrefersDark,
+    themeLoadGeneration,
+  ]);
 
   const setTheme = React.useCallback((themeName: SyntaxThemeName | null) => {
     setSelectedThemeName(themeName);

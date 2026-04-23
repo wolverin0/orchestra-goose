@@ -35,6 +35,17 @@ vi.mock("./theme-loader", () => ({
   loadThemeData: mockLoadThemeData,
 }));
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+}
+
 function createMediaQueryList(initialMatches: boolean) {
   let matches = initialMatches;
   const listeners = new Set<(event: MediaQueryListEvent) => void>();
@@ -368,5 +379,53 @@ describe("ThemeProvider", () => {
     expect(
       document.documentElement.style.getPropertyValue("--background"),
     ).not.toBe("");
+  });
+
+  it("ignores stale theme loads that finish after a newer request", async () => {
+    const user = userEvent.setup();
+    createMediaQueryList(false);
+
+    const githubLight = createDeferred<Record<string, never>>();
+    const dracula = createDeferred<Record<string, never>>();
+
+    mockLoadThemeData.mockImplementation((themeName: string) => {
+      if (themeName === "github-light") {
+        return githubLight.promise;
+      }
+
+      if (themeName === "dracula") {
+        return dracula.promise;
+      }
+
+      return Promise.resolve({});
+    });
+
+    render(
+      <ThemeProvider>
+        <ThemeConsumer />
+      </ThemeProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Set Dracula" }));
+
+    dracula.resolve({});
+
+    await waitFor(() => {
+      expect(screen.getByTestId("resolved-theme")).toHaveTextContent("dracula");
+      expect(document.documentElement).toHaveClass("dark");
+    });
+
+    githubLight.resolve({});
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(screen.getByTestId("resolved-theme")).toHaveTextContent("dracula");
+    expect(document.documentElement).toHaveClass("dark");
+    expect(
+      JSON.parse(localStorage.getItem("goose-theme-cache") ?? "{}"),
+    ).toMatchObject({
+      resolvedThemeName: "dracula",
+    });
   });
 });
