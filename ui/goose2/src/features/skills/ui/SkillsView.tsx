@@ -102,8 +102,8 @@ export function SkillsView() {
         name: string;
         description: string;
         instructions: string;
-        global?: boolean;
-        projectDir?: string;
+        path: string;
+        fileLocation: string;
       }
     | undefined
   >(undefined);
@@ -114,11 +114,11 @@ export function SkillsView() {
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const loadSkills = useCallback(async () => {
+    setLoading(true);
     try {
       const result = await listSkills();
       setSkills(result);
     } catch {
-      // skills directory may not exist yet
       setSkills([]);
     } finally {
       setLoading(false);
@@ -136,9 +136,7 @@ export function SkillsView() {
   const handleConfirmDeleteSkill = async () => {
     if (!deletingSkill) return;
     try {
-      await deleteSkill(deletingSkill.name, {
-        projectDir: deletingSkill.global ? undefined : deletingSkill.projectDir,
-      });
+      await deleteSkill(deletingSkill.path);
       await loadSkills();
     } catch {
       // best-effort
@@ -151,8 +149,8 @@ export function SkillsView() {
       name: skill.name,
       description: skill.description,
       instructions: skill.instructions,
-      global: skill.global,
-      projectDir: skill.projectDir,
+      path: skill.path,
+      fileLocation: skill.fileLocation,
     });
     setDialogOpen(true);
   };
@@ -175,9 +173,7 @@ export function SkillsView() {
 
   const handleExport = async (skill: SkillInfo) => {
     try {
-      const result = await exportSkill(skill.name, {
-        projectDir: skill.global ? undefined : skill.projectDir,
-      });
+      const result = await exportSkill(skill.path);
       const blob = new Blob([result.json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -208,7 +204,6 @@ export function SkillsView() {
         console.error("Failed to import skill:", err);
       }
 
-      // Reset the input so the same file can be re-selected
       if (importInputRef.current) {
         importInputRef.current.value = "";
       }
@@ -255,7 +250,6 @@ export function SkillsView() {
     <div className="flex flex-1 flex-col h-full min-h-0">
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="max-w-5xl mx-auto w-full px-6 py-8 space-y-5 page-transition">
-          {/* Header */}
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-lg font-semibold font-display tracking-tight">
@@ -294,29 +288,28 @@ export function SkillsView() {
             </div>
           </div>
 
-          {/* Search */}
           <SearchBar
             value={search}
             onChange={setSearch}
             placeholder={t("view.searchPlaceholder")}
           />
 
-          {/* Skills list */}
+          {loading && (
+            <div className="py-8 text-sm text-muted-foreground" role="status">
+              {t("common:labels.loading")}
+            </div>
+          )}
+
           {!loading && filtered.length > 0 && (
             <div className="space-y-2">
               {filtered.map((skill) => (
                 <div
-                  key={`${skill.global ? "g" : (skill.projectDir ?? "p")}-${skill.name}`}
+                  key={skill.name}
                   className="flex items-start justify-between gap-3 rounded-lg border border-border px-4 py-3"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium">{skill.name}</p>
-                      {!skill.global && skill.projectName && (
-                        <span className="inline-flex items-center rounded-full bg-accent/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          {skill.projectName}
-                        </span>
-                      )}
                     </div>
                     {skill.description && (
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -334,7 +327,6 @@ export function SkillsView() {
                 </div>
               ))}
 
-              {/* New Skill card */}
               <Button
                 type="button"
                 variant="ghost"
@@ -354,7 +346,6 @@ export function SkillsView() {
             </div>
           )}
 
-          {/* Empty state */}
           {!loading && filtered.length === 0 && (
             <div
               {...dropHandlers}
@@ -393,7 +384,6 @@ export function SkillsView() {
         </div>
       </div>
 
-      {/* Hidden file input for drag-and-drop import */}
       <input
         ref={dropFileInputRef}
         type="file"
@@ -402,7 +392,6 @@ export function SkillsView() {
         onChange={handleDropFileChange}
       />
 
-      {/* Create / Edit dialog */}
       <CreateSkillDialog
         isOpen={dialogOpen}
         onClose={handleDialogClose}
@@ -410,7 +399,6 @@ export function SkillsView() {
         editingSkill={editingSkill}
       />
 
-      {/* Delete confirmation dialog */}
       <AlertDialog
         open={!!deletingSkill}
         onOpenChange={(open) => !open && setDeletingSkill(null)}
@@ -436,7 +424,6 @@ export function SkillsView() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Export notification toast */}
       {notification && (
         <div className="fixed bottom-4 right-4 z-50 rounded-lg border border-border bg-background px-4 py-3 shadow-popover text-sm animate-in fade-in slide-in-from-bottom-2">
           {notification}

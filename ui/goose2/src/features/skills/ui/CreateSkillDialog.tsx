@@ -1,6 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { cn } from "@/shared/lib/cn";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -12,20 +11,46 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
-import { useProjectStore } from "@/features/projects/stores/projectStore";
 import { createSkill, updateSkill } from "../api/skills";
 
-const KEBAB_CASE_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const MAX_SKILL_NAME_LENGTH = 64;
 
-/** Sentinel value for the "Global" option in the save-location picker. */
-const GLOBAL_VALUE = "__global__";
+function isValidSkillName(name: string): boolean {
+  return (
+    name.length > 0 &&
+    name.length <= MAX_SKILL_NAME_LENGTH &&
+    !name.startsWith("-") &&
+    !name.endsWith("-") &&
+    [...name].every(
+      (char) =>
+        (char >= "a" && char <= "z") ||
+        (char >= "0" && char <= "9") ||
+        char === "-",
+    )
+  );
+}
+
+function formatSkillName(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/^-/, "")
+    .slice(0, MAX_SKILL_NAME_LENGTH);
+}
+
+function getRenamedSkillFileLocation(
+  fileLocation: string,
+  name: string,
+): string {
+  const separator = fileLocation.includes("\\") ? "\\" : "/";
+  const parts = fileLocation.split(separator);
+
+  if (parts.length >= 2) {
+    parts[parts.length - 2] = name;
+  }
+
+  return parts.join(separator);
+}
 
 interface CreateSkillDialogProps {
   isOpen: boolean;
@@ -35,8 +60,8 @@ interface CreateSkillDialogProps {
     name: string;
     description: string;
     instructions: string;
-    global?: boolean;
-    projectDir?: string;
+    path: string;
+    fileLocation: string;
   };
 }
 
@@ -50,17 +75,8 @@ export function CreateSkillDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [saveLocation, setSaveLocation] = useState(GLOBAL_VALUE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const projects = useProjectStore((s) => s.projects);
-
-  // Only projects with working directories can hold skills
-  const projectsWithDirs = useMemo(
-    () => projects.filter((p) => p.workingDirs.length > 0),
-    [projects],
-  );
 
   const isEditing = !!editingSkill;
 
@@ -70,28 +86,20 @@ export function CreateSkillDialog({
       setName(editingSkill.name);
       setDescription(editingSkill.description);
       setInstructions(editingSkill.instructions);
-      setSaveLocation(GLOBAL_VALUE); // location is fixed for existing skills
       setError(null);
     } else if (isOpen) {
       setName("");
       setDescription("");
       setInstructions("");
-      setSaveLocation(GLOBAL_VALUE);
       setError(null);
     }
   }, [isOpen, editingSkill]);
 
-  const nameValid = name.length > 0 && KEBAB_CASE_REGEX.test(name);
+  const nameValid = isValidSkillName(name);
   const canSave = nameValid && description.trim().length > 0 && !saving;
 
   const handleNameChange = (raw: string) => {
-    if (isEditing) return; // name is read-only in edit mode
-    const formatted = raw
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-/, "");
-    setName(formatted);
+    setName(formatSkillName(raw));
     setError(null);
   };
 
@@ -99,7 +107,6 @@ export function CreateSkillDialog({
     setName("");
     setDescription("");
     setInstructions("");
-    setSaveLocation(GLOBAL_VALUE);
     setError(null);
     onClose();
   };
@@ -111,23 +118,18 @@ export function CreateSkillDialog({
     setError(null);
     try {
       if (isEditing) {
-        await updateSkill(name, description.trim(), instructions, {
-          projectDir:
-            editingSkill?.global === false
-              ? editingSkill.projectDir
-              : undefined,
-        });
+        await updateSkill(
+          editingSkill.path,
+          name,
+          description.trim(),
+          instructions,
+        );
       } else {
-        const projectId =
-          saveLocation !== GLOBAL_VALUE ? saveLocation : undefined;
-        await createSkill(name, description.trim(), instructions, {
-          projectId,
-        });
+        await createSkill(name, description.trim(), instructions);
       }
       setName("");
       setDescription("");
       setInstructions("");
-      setSaveLocation(GLOBAL_VALUE);
       onCreated?.();
       onClose();
     } catch (err) {
@@ -160,8 +162,6 @@ export function CreateSkillDialog({
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder={t("dialog.namePlaceholder")}
-              readOnly={isEditing}
-              className={cn(isEditing && "opacity-60 cursor-not-allowed")}
             />
             {name.length > 0 && !nameValid && (
               <p className="text-xs text-destructive">
@@ -169,35 +169,6 @@ export function CreateSkillDialog({
               </p>
             )}
           </div>
-
-          {/* Save location — only shown when creating */}
-          {!isEditing && projectsWithDirs.length > 0 && (
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-muted-foreground">
-                {t("dialog.saveLocation")}
-              </Label>
-              <Select value={saveLocation} onValueChange={setSaveLocation}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={GLOBAL_VALUE}>
-                    {t("dialog.global")}
-                  </SelectItem>
-                  {projectsWithDirs.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                {saveLocation === GLOBAL_VALUE
-                  ? t("dialog.globalHint")
-                  : t("dialog.projectHint")}
-              </p>
-            </div>
-          )}
 
           {/* Description */}
           <div className="space-y-1">
@@ -214,6 +185,13 @@ export function CreateSkillDialog({
               placeholder={t("dialog.descriptionPlaceholder")}
             />
           </div>
+
+          {isEditing && editingSkill && (
+            <p className="-mt-2 break-all text-[11px] text-muted-foreground">
+              {t("dialog.pathOnDisk")}:{" "}
+              {getRenamedSkillFileLocation(editingSkill.fileLocation, name)}
+            </p>
+          )}
 
           {/* Instructions */}
           <div className="space-y-1">

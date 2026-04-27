@@ -81,6 +81,30 @@ export const zGetExtensionsResponse = z.object({
     warnings: z.array(z.string())
 });
 
+/**
+ * Persist a new extension to the user's global goose config.
+ */
+export const zAddConfigExtensionRequest = z.object({
+    name: z.string(),
+    extensionConfig: z.unknown().optional().default(null),
+    enabled: z.boolean().optional().default(false)
+});
+
+/**
+ * Remove a persisted extension from the user's global goose config.
+ */
+export const zRemoveConfigExtensionRequest = z.object({
+    configKey: z.string()
+});
+
+/**
+ * Toggle the `enabled` flag for a persisted extension in the user's global goose config.
+ */
+export const zToggleConfigExtensionRequest = z.object({
+    configKey: z.string(),
+    enabled: z.boolean()
+});
+
 export const zGetSessionExtensionsRequest = z.object({
     sessionId: z.string()
 });
@@ -305,6 +329,14 @@ export const zUpdateSessionProjectRequest = z.object({
 });
 
 /**
+ * Rename a session.
+ */
+export const zRenameSessionRequest = z.object({
+    sessionId: z.string(),
+    title: z.string()
+});
+
+/**
  * Archive a session (soft delete).
  */
 export const zArchiveSessionRequest = z.object({
@@ -332,10 +364,17 @@ export const zSetSessionProjectRequest = z.object({
 /**
  * The type of source entity.
  */
-export const zSourceType = z.enum(['skill', 'project']);
+export const zSourceType = z.enum([
+    'skill',
+    'builtinSkill',
+    'recipe',
+    'subrecipe',
+    'agent',
+    'project'
+]);
 
 /**
- * Create a new source (global or project-scoped).
+ * Create a new source in an explicit target scope (global or project-scoped).
  */
 export const zCreateSourceRequest = z.object({
     type: zSourceType,
@@ -355,8 +394,8 @@ export const zCreateSourceRequest = z.object({
 });
 
 /**
- * A source — a user-editable entity backed by an on-disk directory. Sources
- * may be either `global` (shared across all projects) or project-specific.
+ * A source discovered by Goose and backed by an on-disk path. Sources may be
+ * either `global` (shared across all projects) or project-specific.
  */
 export const zSourceEntry = z.object({
     type: zSourceType,
@@ -365,6 +404,7 @@ export const zSourceEntry = z.object({
     content: z.string(),
     directory: z.string(),
     global: z.boolean(),
+    supportingFiles: z.array(z.string()).optional(),
     properties: z.record(z.unknown()).optional()
 });
 
@@ -373,8 +413,11 @@ export const zCreateSourceResponse = z.object({
 });
 
 /**
- * List sources. If `type` is omitted, sources of all known types are returned.
- * Both global and project-scoped sources are included when `project_dir` is set.
+ * List discovered sources.
+ *
+ * Today this endpoint only returns skills. If `type` is omitted, it defaults
+ * to listing skill sources. Both global and project-scoped skills are included
+ * when `project_dir` is set.
  */
 export const zListSourcesRequest = z.object({
     type: z.union([
@@ -393,19 +436,14 @@ export const zListSourcesResponse = z.object({
 });
 
 /**
- * Update an existing source's description and content.
+ * Update an existing source's name, description, and content by absolute path.
  */
 export const zUpdateSourceRequest = z.object({
     type: zSourceType,
+    path: z.string(),
     name: z.string(),
     description: z.string(),
-    content: z.string(),
-    global: z.boolean(),
-    projectDir: z.union([
-        z.string(),
-        z.null()
-    ]).optional(),
-    properties: z.record(z.unknown()).optional()
+    content: z.string()
 });
 
 export const zUpdateSourceResponse = z.object({
@@ -413,29 +451,19 @@ export const zUpdateSourceResponse = z.object({
 });
 
 /**
- * Delete a source and its on-disk directory.
+ * Delete a source and its on-disk directory by absolute path.
  */
 export const zDeleteSourceRequest = z.object({
     type: zSourceType,
-    name: z.string(),
-    global: z.boolean(),
-    projectDir: z.union([
-        z.string(),
-        z.null()
-    ]).optional()
+    path: z.string()
 });
 
 /**
- * Export a source as a portable JSON payload.
+ * Export a source at an absolute path as a portable JSON payload.
  */
 export const zExportSourceRequest = z.object({
     type: zSourceType,
-    name: z.string(),
-    global: z.boolean(),
-    projectDir: z.union([
-        z.string(),
-        z.null()
-    ]).optional()
+    path: z.string()
 });
 
 export const zExportSourceResponse = z.object({
@@ -445,8 +473,8 @@ export const zExportSourceResponse = z.object({
 
 /**
  * Import a source from a JSON export payload produced by `_goose/sources/export`.
- * The imported source is written under the given scope; on name collisions a
- * `-imported` suffix is appended.
+ * The imported source is written into the explicit target scope; on name
+ * collisions a `-imported` suffix is appended.
  */
 export const zImportSourcesRequest = z.object({
     data: z.string(),
@@ -613,6 +641,9 @@ export const zExtRequest = z.object({
             zUpdateWorkingDirRequest,
             zDeleteSessionRequest,
             zGetExtensionsRequest,
+            zAddConfigExtensionRequest,
+            zRemoveConfigExtensionRequest,
+            zToggleConfigExtensionRequest,
             zGetSessionExtensionsRequest,
             zListProvidersRequest,
             zRefreshProviderInventoryRequest,
@@ -625,6 +656,7 @@ export const zExtRequest = z.object({
             zExportSessionRequest,
             zImportSessionRequest,
             zUpdateSessionProjectRequest,
+            zRenameSessionRequest,
             zArchiveSessionRequest,
             zUnarchiveSessionRequest,
             zSetSessionProjectRequest,

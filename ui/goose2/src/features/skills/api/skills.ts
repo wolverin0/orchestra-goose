@@ -1,45 +1,43 @@
+import type { SourceEntry } from "@aaif/goose-sdk";
 import { getClient } from "@/shared/api/acpConnection";
+
+const SKILL_SOURCE_TYPE = "skill" as const;
 
 export interface SkillInfo {
   name: string;
   description: string;
   instructions: string;
   path: string;
+  fileLocation: string;
   global: boolean;
-  /** Present when the skill belongs to a project (non-global). */
   projectName?: string;
-  /** The project root directory. Needed for update/delete of non-global skills. */
   projectDir?: string;
 }
 
-// Shape returned by _goose/sources/*. Narrowed to skill-type sources here.
-interface SourceEntry {
-  type: "skill";
-  name: string;
-  description: string;
-  content: string;
-  directory: string;
-  global: boolean;
-  properties?: Record<string, unknown>;
+type SkillSourceEntry = SourceEntry & { type: typeof SKILL_SOURCE_TYPE };
+
+function isSkillSource(source: SourceEntry): source is SkillSourceEntry {
+  return source.type === SKILL_SOURCE_TYPE;
 }
 
-function toSkillInfo(source: SourceEntry): SkillInfo {
-  const info: SkillInfo = {
+function getSkillFileLocation(directory: string): string {
+  const separator = directory.includes("\\") ? "\\" : "/";
+  return directory.endsWith(separator)
+    ? `${directory}SKILL.md`
+    : `${directory}${separator}SKILL.md`;
+}
+
+function toSkillInfo(source: SkillSourceEntry): SkillInfo {
+  return {
     name: source.name,
     description: source.description,
     instructions: source.content,
     path: source.directory,
+    fileLocation: getSkillFileLocation(source.directory),
     global: source.global,
+    projectName: source.properties?.projectName as string | undefined,
+    projectDir: source.properties?.projectDir as string | undefined,
   };
-  const projectName = source.properties?.projectName;
-  if (typeof projectName === "string") {
-    info.projectName = projectName;
-  }
-  const projectDir = source.properties?.projectDir;
-  if (typeof projectDir === "string") {
-    info.projectDir = projectDir;
-  }
-  return info;
 }
 
 export async function createSkill(
@@ -49,88 +47,80 @@ export async function createSkill(
   options?: { projectId?: string },
 ): Promise<void> {
   const client = await getClient();
-  await client.extMethod("_goose/sources/create", {
-    type: "skill",
+  await client.goose.GooseSourcesCreate({
+    type: SKILL_SOURCE_TYPE,
     name,
     description,
     content: instructions,
     global: !options?.projectId,
-    ...(options?.projectId ? { projectId: options.projectId } : {}),
+    projectId: options?.projectId,
   });
 }
 
-export async function listSkills(options?: {
-  includeProjectSources?: boolean;
-}): Promise<SkillInfo[]> {
+export async function listSkills(): Promise<SkillInfo[]> {
   const client = await getClient();
-  const raw = await client.extMethod("_goose/sources/list", {
-    type: "skill",
-    includeProjectSources: options?.includeProjectSources ?? true,
+  const response = await client.goose.GooseSourcesList({
+    type: SKILL_SOURCE_TYPE,
+    includeProjectSources: true,
   });
-  const sources = (raw.sources ?? []) as SourceEntry[];
-  return sources.map(toSkillInfo);
+  return response.sources.filter(isSkillSource).map(toSkillInfo);
 }
 
-export async function deleteSkill(
-  name: string,
-  options?: { projectDir?: string },
-): Promise<void> {
+export async function deleteSkill(path: string): Promise<void> {
   const client = await getClient();
-  await client.extMethod("_goose/sources/delete", {
-    type: "skill",
-    name,
-    global: !options?.projectDir,
-    ...(options?.projectDir ? { projectDir: options.projectDir } : {}),
+  await client.goose.GooseSourcesDelete({
+    type: SKILL_SOURCE_TYPE,
+    path,
   });
 }
 
 export async function updateSkill(
+  path: string,
   name: string,
   description: string,
   instructions: string,
-  options?: { projectDir?: string },
 ): Promise<SkillInfo> {
   const client = await getClient();
-  const raw = await client.extMethod("_goose/sources/update", {
-    type: "skill",
+  const response = await client.goose.GooseSourcesUpdate({
+    type: SKILL_SOURCE_TYPE,
+    path,
     name,
     description,
     content: instructions,
-    global: !options?.projectDir,
-    ...(options?.projectDir ? { projectDir: options.projectDir } : {}),
   });
-  return toSkillInfo(raw.source as SourceEntry);
+
+  if (!isSkillSource(response.source)) {
+    throw new Error(`Unexpected source type returned: ${response.source.type}`);
+  }
+
+  return toSkillInfo(response.source);
 }
 
 export async function exportSkill(
-  name: string,
-  options?: { projectDir?: string },
+  path: string,
 ): Promise<{ json: string; filename: string }> {
   const client = await getClient();
-  const raw = await client.extMethod("_goose/sources/export", {
-    type: "skill",
-    name,
-    global: !options?.projectDir,
-    ...(options?.projectDir ? { projectDir: options.projectDir } : {}),
+  const response = await client.goose.GooseSourcesExport({
+    type: SKILL_SOURCE_TYPE,
+    path,
   });
-  return { json: raw.json as string, filename: raw.filename as string };
+  return { json: response.json, filename: response.filename };
 }
 
 export async function importSkills(
   fileBytes: number[],
   fileName: string,
-  options?: { projectId?: string },
 ): Promise<SkillInfo[]> {
   if (!fileName.endsWith(".skill.json") && !fileName.endsWith(".json")) {
     throw new Error("File must have a .skill.json or .json extension");
   }
+
   const data = new TextDecoder().decode(new Uint8Array(fileBytes));
   const client = await getClient();
-  const raw = await client.extMethod("_goose/sources/import", {
+  const response = await client.goose.GooseSourcesImport({
     data,
-    global: !options?.projectId,
-    ...(options?.projectId ? { projectId: options.projectId } : {}),
+    global: true,
   });
-  const sources = (raw.sources ?? []) as SourceEntry[];
-  return sources.map(toSkillInfo);
+
+  return response.sources.filter(isSkillSource).map(toSkillInfo);
 }

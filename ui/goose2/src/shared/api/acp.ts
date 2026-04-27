@@ -73,12 +73,15 @@ export async function acpSendMessage(
     throw new Error("Session not prepared. Call acpPrepareSession first.");
   }
 
-  const hasSystem = systemPrompt && systemPrompt.trim().length > 0;
-  const effectivePrompt = hasSystem
-    ? `<persona-instructions>\n${systemPrompt}\n</persona-instructions>\n\n<user-message>\n${prompt}\n</user-message>`
-    : prompt;
-
-  const content: ContentBlock[] = [{ type: "text", text: effectivePrompt }];
+  const content: ContentBlock[] = [];
+  if (systemPrompt?.trim()) {
+    content.push({
+      type: "text",
+      text: systemPrompt,
+      annotations: { audience: ["assistant"] },
+    });
+  }
+  content.push({ type: "text", text: prompt });
   if (images) {
     for (const [data, mimeType] of images) {
       content.push({ type: "image", data, mimeType } as ContentBlock);
@@ -92,7 +95,13 @@ export async function acpSendMessage(
     `[perf:send] ${sid} acpSendMessage → prompt(len=${prompt.length}, imgs=${images?.length ?? 0})`,
   );
   const tPrompt = performance.now();
-  await directAcp.prompt(gooseSessionId, content);
+  const meta: Record<string, unknown> = {};
+  if (personaId) meta.personaId = personaId;
+  await directAcp.prompt(
+    gooseSessionId,
+    content,
+    Object.keys(meta).length > 0 ? meta : undefined,
+  );
   const tDone = performance.now();
   perfLog(
     `[perf:send] ${sid} prompt() resolved in ${(tDone - tPrompt).toFixed(1)}ms (total acpSendMessage ${(tDone - tStart).toFixed(1)}ms)`,
