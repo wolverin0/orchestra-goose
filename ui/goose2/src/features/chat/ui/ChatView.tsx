@@ -91,6 +91,7 @@ export function ChatView({
               scrollTargetMessageId={controller.scrollTarget?.messageId ?? null}
               scrollTargetQuery={controller.scrollTarget?.query ?? null}
               onScrollTargetHandled={controller.handleScrollTargetHandled}
+              onSendMcpAppMessage={controller.handleSend}
             />
           )}
 

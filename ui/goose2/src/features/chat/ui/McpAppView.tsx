@@ -19,6 +19,7 @@ import type {
   McpAppPayload,
   ToolResponseContent,
 } from "@/shared/types/messages";
+import type { McpAppMessageHandler } from "./mcpAppTypes";
 import {
   extractRenderableMcpAppDocument,
   type McpAppResourceCsp,
@@ -28,7 +29,7 @@ interface McpAppViewProps {
   payload: McpAppPayload;
   toolInput?: Record<string, unknown>;
   toolResponse?: ToolResponseContent;
-  onSendMessage?: (text: string) => void | Promise<void>;
+  onSendMessage?: McpAppMessageHandler;
   onAutoScrollRequest?: (element: HTMLElement | null) => void;
 }
 
@@ -96,9 +97,7 @@ export function McpAppView({
   const [activeToolInput, setActiveToolInput] = useState<
     Record<string, unknown> | undefined
   >();
-  const [activeToolResult, setActiveToolResult] = useState<
-    CallToolResult | undefined
-  >();
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
   const autoScrollTimersRef = useRef<number[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -111,7 +110,7 @@ export function McpAppView({
     [toolResponse],
   );
   const currentToolInput = activeToolInput ?? toolInput;
-  const currentToolResult = activeToolResult ?? initialToolResult;
+  const currentToolResult = initialToolResult;
 
   const requestAutoScroll = useCallback(() => {
     if (!onAutoScrollRequest) {
@@ -150,6 +149,37 @@ export function McpAppView({
     },
     [],
   );
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) {
+      return;
+    }
+
+    const updateWidth = (width: number) => {
+      if (width > 0) {
+        setContainerWidth(Math.round(width));
+      }
+    };
+
+    updateWidth(root.getBoundingClientRect().width);
+
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const nextWidth = entries[0]?.contentRect.width;
+      if (typeof nextWidth === "number") {
+        updateWidth(nextWidth);
+      }
+    });
+
+    observer.observe(root);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,11 +242,18 @@ export function McpAppView({
       theme: resolvedTheme,
       displayMode: "inline",
       availableDisplayModes: [...INLINE_DISPLAY_MODES],
+      containerDimensions:
+        containerWidth !== null
+          ? {
+              width: containerWidth,
+              height: inlineHeight,
+            }
+          : undefined,
       locale: navigator.language,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       platform: "desktop",
     }),
-    [resolvedTheme],
+    [containerWidth, inlineHeight, resolvedTheme],
   );
 
   const handleOpenLink = useCallback(async ({ url }: { url: string }) => {
@@ -245,8 +282,8 @@ export function McpAppView({
         return { isError: true };
       }
 
-      await onSendMessage(text);
-      return {};
+      const accepted = await onSendMessage(text);
+      return accepted === false ? { isError: true } : {};
     },
     [onSendMessage],
   );
@@ -262,7 +299,6 @@ export function McpAppView({
       const acpSessionId = payload.gooseSessionId ?? payload.sessionId;
 
       setActiveToolInput(args ?? {});
-      setActiveToolResult(undefined);
 
       const client = await getClient();
       const response = (await client.extMethod("_goose/tool/call", {
@@ -279,7 +315,6 @@ export function McpAppView({
         _meta: response._meta as CallToolResult["_meta"],
       };
 
-      setActiveToolResult(toolResult);
       return toolResult;
     },
     [payload.gooseSessionId, payload.sessionId, payload.tool.extensionName],
@@ -344,11 +379,11 @@ export function McpAppView({
   // goes wrong, we intentionally keep the JSON snapshot visible so the chat
   // still exposes the persisted payload we built in step 2.
   return (
-    <div ref={rootRef} className="my-3" data-testid="mcp-app-view">
+    <div ref={rootRef} className="my-3 w-full" data-testid="mcp-app-view">
       {shouldRenderApp ? (
         <div
           className={cn(
-            "overflow-hidden rounded-lg bg-background/40",
+            "w-full overflow-hidden rounded-lg bg-background/40",
             renderableDocument.prefersBorder &&
               "border border-border-primary shadow-sm",
           )}

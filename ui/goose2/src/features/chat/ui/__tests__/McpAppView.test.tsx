@@ -1,0 +1,191 @@
+import type { AppRendererProps, RequestHandlerExtra } from "@mcp-ui/client";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { McpAppView } from "../McpAppView";
+import type {
+  McpAppPayload,
+  ToolResponseContent,
+} from "@/shared/types/messages";
+
+const mocks = vi.hoisted(() => ({
+  appRendererSpy: vi.fn(),
+  nestedToolResultSpy: vi.fn(),
+  extMethod: vi.fn(),
+  getClient: vi.fn(),
+}));
+
+vi.mock("@mcp-ui/client", () => ({
+  AppRenderer: (props: AppRendererProps) => {
+    mocks.appRendererSpy(props);
+
+    return (
+      <button
+        data-testid="mock-app-renderer"
+        onClick={() => {
+          void props
+            .onCallTool?.(
+              {
+                name: "get-server-time",
+                arguments: { timezone: "America/New_York" },
+              },
+              {} as RequestHandlerExtra,
+            )
+            .then((result) => {
+              mocks.nestedToolResultSpy(result);
+            });
+        }}
+        type="button"
+      >
+        call nested tool
+      </button>
+    );
+  },
+}));
+
+vi.mock("@/shared/api/acpConnection", () => ({
+  getClient: mocks.getClient,
+}));
+
+vi.mock("@/shared/api/gooseServeHost", () => ({
+  getGooseServeHostInfo: vi.fn().mockResolvedValue({
+    httpBaseUrl: "http://127.0.0.1:4242",
+    secretKey: "test-secret",
+  }),
+}));
+
+vi.mock("@/shared/theme/ThemeProvider", () => ({
+  useTheme: () => ({ resolvedTheme: "dark" }),
+}));
+
+function createPayload(): McpAppPayload {
+  return {
+    sessionId: "local-session",
+    gooseSessionId: null,
+    toolCallId: "tool-1",
+    toolCallTitle: "inspect messaging",
+    source: "toolCallUpdateMeta",
+    tool: {
+      name: "inspect-messaging",
+      extensionName: "mcpappbench_local_",
+      resourceUri: "ui://inspect-messaging",
+    },
+    resource: {
+      result: {
+        contents: [
+          {
+            uri: "ui://inspect-messaging",
+            mimeType: "text/html;profile=mcp-app",
+            text: "<div>Messaging Inspector</div>",
+          },
+        ],
+      },
+    },
+  };
+}
+
+function createToolResponse(): ToolResponseContent {
+  return {
+    type: "toolResponse",
+    id: "tool-1",
+    name: "inspect messaging",
+    result: "Messaging Inspector loaded.",
+    isError: false,
+    structuredContent: {
+      timestamp: "2026-04-22T18:28:48.287Z",
+      joke: "Why do programmers prefer dark mode? Because light attracts bugs!",
+    },
+  };
+}
+
+function getLatestAppRendererProps(): AppRendererProps {
+  const props = mocks.appRendererSpy.mock.calls.at(-1)?.[0] as
+    | AppRendererProps
+    | undefined;
+
+  expect(props).toBeDefined();
+  if (!props) {
+    throw new Error("Expected AppRenderer props to be recorded");
+  }
+  return props;
+}
+
+describe("McpAppView nested tool calls", () => {
+  beforeEach(() => {
+    mocks.appRendererSpy.mockClear();
+    mocks.nestedToolResultSpy.mockClear();
+    mocks.extMethod.mockReset();
+    mocks.getClient.mockReset();
+    mocks.getClient.mockResolvedValue({
+      extMethod: mocks.extMethod,
+    });
+  });
+
+  it("keeps the original toolResult after nested app tool calls resolve", async () => {
+    const nestedToolResult = {
+      content: [{ type: "text", text: "2026-04-22T18:29:06.433Z" }],
+      isError: false,
+      structuredContent: {
+        timestamp: "2026-04-22T18:29:06.433Z",
+        timezone: "America/New_York",
+        unixMs: 1776882546433,
+      },
+      _meta: {
+        source: "nested-tool-call",
+      },
+    };
+
+    mocks.extMethod.mockResolvedValue(nestedToolResult);
+
+    render(
+      <McpAppView
+        payload={createPayload()}
+        toolInput={{ inspector: "messaging" }}
+        toolResponse={createToolResponse()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("mock-app-renderer")).toBeInTheDocument();
+    });
+
+    const initialToolResult = getLatestAppRendererProps().toolResult;
+    expect(initialToolResult).toEqual(
+      expect.objectContaining({
+        isError: false,
+        structuredContent: expect.objectContaining({
+          joke: "Why do programmers prefer dark mode? Because light attracts bugs!",
+        }),
+      }),
+    );
+
+    fireEvent.click(screen.getByTestId("mock-app-renderer"));
+
+    await waitFor(() => {
+      expect(mocks.extMethod).toHaveBeenCalledWith("_goose/tool/call", {
+        sessionId: "local-session",
+        name: "mcpappbench_local___get-server-time",
+        arguments: { timezone: "America/New_York" },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.nestedToolResultSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          structuredContent: nestedToolResult.structuredContent,
+          _meta: nestedToolResult._meta,
+        }),
+      );
+    });
+
+    const latestProps = getLatestAppRendererProps();
+    expect(latestProps.toolInput).toEqual({ timezone: "America/New_York" });
+    expect(latestProps.toolResult).toBe(initialToolResult);
+    expect(latestProps.toolResult).toEqual(
+      expect.objectContaining({
+        structuredContent: expect.objectContaining({
+          joke: "Why do programmers prefer dark mode? Because light attracts bugs!",
+        }),
+      }),
+    );
+  });
+});

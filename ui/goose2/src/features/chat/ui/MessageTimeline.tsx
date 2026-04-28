@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/cn";
 import { useLocaleFormatting } from "@/shared/i18n";
 import { MessageBubble } from "./MessageBubble";
+import type { McpAppMessageHandler } from "./mcpAppTypes";
 import { getTextContent, type Message } from "@/shared/types/messages";
 
 const AUTO_SCROLL_THRESHOLD_PX = 180;
@@ -16,7 +17,7 @@ interface MessageTimelineProps {
   onScrollTargetHandled?: (messageId: string) => void;
   onRetryMessage?: (messageId: string) => void;
   onEditMessage?: (messageId: string) => void;
-  onSendMcpAppMessage?: (text: string) => void | Promise<void>;
+  onSendMcpAppMessage?: McpAppMessageHandler;
   className?: string;
 }
 
