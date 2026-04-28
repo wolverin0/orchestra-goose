@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus, Upload } from "lucide-react";
+import { toast } from "sonner";
 import { useProjectStore } from "@/features/projects/stores/projectStore";
 import { cn } from "@/shared/lib/cn";
 import { Button } from "@/shared/ui/button";
@@ -58,7 +59,6 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
   const [skills, setSkills] = useState<SkillViewInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingSkill, setDeletingSkill] = useState<SkillInfo | null>(null);
-  const [notification, setNotification] = useState<string | null>(null);
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
   const [expandedSectionIds, setExpandedSectionIds] = useState<string[]>([]);
   const loadRequestIdRef = useRef(0);
@@ -80,13 +80,14 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
     } catch {
       if (loadRequestIdRef.current === requestId) {
         setSkills([]);
+        toast.error(t("view.loadError"));
       }
     } finally {
       if (loadRequestIdRef.current === requestId) {
         setLoading(false);
       }
     }
-  }, [projects]);
+  }, [projects, t]);
 
   useEffect(() => {
     loadSkills();
@@ -224,8 +225,9 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
       if (activeSkillId === deletingSkill.id) {
         setActiveSkillId(null);
       }
+      toast.success(t("view.deleteSuccess", { name: deletingSkill.name }));
     } catch {
-      // best-effort
+      toast.error(t("view.deleteError"));
     }
     setDeletingSkill(null);
   };
@@ -245,10 +247,9 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
     try {
       const result = await exportSkill(skill.path);
       downloadExport(result.json, result.filename);
-      setNotification(t("view.exportedTo", { filename: result.filename }));
-      setTimeout(() => setNotification(null), 3000);
-    } catch (err) {
-      console.error("Failed to export skill:", err);
+      toast.success(t("view.exportedTo", { filename: result.filename }));
+    } catch {
+      toast.error(t("view.exportError"));
     }
   };
 
@@ -278,11 +279,12 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
       try {
         await importSkills(fileBytes, fileName);
         await loadSkills();
-      } catch (error) {
-        console.error("Failed to import skill:", error);
+        toast.success(t("view.importSuccess"));
+      } catch {
+        toast.error(t("view.importError"));
       }
     },
-    [loadSkills],
+    [loadSkills, t],
   );
 
   const {
@@ -306,7 +308,6 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
       deletingSkill={deletingSkill}
       onDeletingSkillChange={setDeletingSkill}
       onConfirmDelete={handleConfirmDeleteSkill}
-      notification={notification}
     />
   );
 

@@ -27,7 +27,6 @@ interface SkillsDialogsProps {
   deletingSkill: SkillInfo | null;
   onDeletingSkillChange: (skill: SkillInfo | null) => void;
   onConfirmDelete: () => void | Promise<void>;
-  notification: string | null;
 }
 
 export function SkillsDialogs({
@@ -38,7 +37,6 @@ export function SkillsDialogs({
   deletingSkill,
   onDeletingSkillChange,
   onConfirmDelete,
-  notification,
 }: SkillsDialogsProps) {
   const { t } = useTranslation(["skills", "common"]);
 
@@ -75,12 +73,6 @@ export function SkillsDialogs({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {notification && (
-        <div className="fixed bottom-4 right-4 z-50 rounded-lg border border-border bg-background px-4 py-3 text-sm shadow-popover animate-in fade-in slide-in-from-bottom-2">
-          {notification}
-        </div>
-      )}
     </>
   );
 }
