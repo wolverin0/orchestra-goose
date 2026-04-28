@@ -107,6 +107,7 @@ export async function createSkill(
   name: string,
   description: string,
   instructions: string,
+  options?: { projectId?: string },
 ): Promise<void> {
   const client = await getClient();
   await client.goose.GooseSourcesCreate({
@@ -114,7 +115,8 @@ export async function createSkill(
     name,
     description,
     content: instructions,
-    global: true,
+    global: !options?.projectId,
+    projectId: options?.projectId,
   });
 }
 

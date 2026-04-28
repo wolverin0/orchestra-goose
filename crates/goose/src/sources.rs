@@ -294,7 +294,12 @@ pub fn list_sources(
     include_project_sources: bool,
 ) -> Result<Vec<SourceEntry>, Error> {
     let types_to_list: Vec<SourceType> = match source_type {
-        Some(t) => vec![t],
+        Some(SourceType::Skill) | Some(SourceType::Project) => vec![source_type.unwrap()],
+        Some(other) => {
+            return Err(Error::invalid_params().data(format!(
+                "Source type '{other}' is not supported for listing."
+            )));
+        }
         None => vec![SourceType::Skill, SourceType::Project],
     };
 
@@ -486,6 +491,7 @@ mod tests {
             "step one\nstep two",
             false,
             Some(project),
+            HashMap::new(),
         )
         .unwrap();
         assert_eq!(created.name, "my-skill");
@@ -493,7 +499,7 @@ mod tests {
         let dir = PathBuf::from(&created.directory);
         assert!(dir.join("SKILL.md").exists());
 
-        let listed = list_sources(Some(SourceType::Skill), Some(project)).unwrap();
+        let listed = list_sources(Some(SourceType::Skill), Some(project), false).unwrap();
         assert!(listed.iter().any(|s| s.name == "my-skill" && !s.global));
 
         let updated = update_source(
@@ -516,15 +522,15 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let project = tmp.path().to_str().unwrap();
 
-        create_source(SourceType::Skill, "dup", "d", "c", false, Some(project)).unwrap();
+        create_source(SourceType::Skill, "dup", "d", "c", false, Some(project), HashMap::new()).unwrap();
         let err =
-            create_source(SourceType::Skill, "dup", "d", "c", false, Some(project)).unwrap_err();
+            create_source(SourceType::Skill, "dup", "d", "c", false, Some(project), HashMap::new()).unwrap_err();
         assert!(format!("{:?}", err).contains("already exists"));
     }
 
     #[test]
     fn project_scope_requires_project_dir() {
-        let err = create_source(SourceType::Skill, "x", "d", "c", false, None).unwrap_err();
+        let err = create_source(SourceType::Skill, "x", "d", "c", false, None, HashMap::new()).unwrap_err();
         assert!(format!("{:?}", err).contains("projectDir"));
     }
 
@@ -543,6 +549,7 @@ mod tests {
             "body goes here",
             false,
             Some(project_a.to_str().unwrap()),
+            HashMap::new(),
         )
         .unwrap();
 
@@ -571,7 +578,7 @@ mod tests {
         .unwrap();
 
         let listed =
-            list_sources(Some(SourceType::Skill), Some(project.to_str().unwrap())).unwrap();
+            list_sources(Some(SourceType::Skill), Some(project.to_str().unwrap()), false).unwrap();
         let exported_skill = listed
             .iter()
             .find(|skill| skill.name == "portable")
@@ -618,7 +625,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let project = tmp.path().to_str().unwrap();
 
-        create_source(SourceType::Skill, "busy", "d", "c", false, Some(project)).unwrap();
+        create_source(SourceType::Skill, "busy", "d", "c", false, Some(project), HashMap::new()).unwrap();
 
         let payload = serde_json::json!({
             "version": 1,
@@ -675,6 +682,7 @@ mod tests {
             "c",
             false,
             Some(project),
+            HashMap::new(),
         )
         .unwrap_err();
         assert!(format!("{:?}", err).contains("not supported"));
@@ -685,7 +693,7 @@ mod tests {
         let err = delete_source(SourceType::Subrecipe, "x").unwrap_err();
         assert!(format!("{:?}", err).contains("not supported"));
 
-        let err = list_sources(Some(SourceType::BuiltinSkill), Some(project)).unwrap_err();
+        let err = list_sources(Some(SourceType::BuiltinSkill), Some(project), false).unwrap_err();
         assert!(format!("{:?}", err).contains("not supported"));
 
         let err = export_source(SourceType::Recipe, "x").unwrap_err();
@@ -704,6 +712,7 @@ mod tests {
             "body",
             false,
             Some(project),
+            HashMap::new(),
         )
         .unwrap();
 
@@ -732,7 +741,7 @@ mod tests {
         .unwrap();
 
         let listed =
-            list_sources(Some(SourceType::Skill), Some(tmp.path().to_str().unwrap())).unwrap();
+            list_sources(Some(SourceType::Skill), Some(tmp.path().to_str().unwrap()), false).unwrap();
         let skill = listed
             .iter()
             .find(|source| source.name == "test-skill" && !source.global)
@@ -768,7 +777,7 @@ mod tests {
         .unwrap();
 
         let listed =
-            list_sources(Some(SourceType::Skill), Some(tmp.path().to_str().unwrap())).unwrap();
+            list_sources(Some(SourceType::Skill), Some(tmp.path().to_str().unwrap()), false).unwrap();
         let matching: Vec<_> = listed
             .iter()
             .filter(|source| source.name == "shared-skill" && !source.global)

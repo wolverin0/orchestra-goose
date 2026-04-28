@@ -241,13 +241,4 @@ export async function prompt(
   return client.prompt({ sessionId, prompt: content, _meta: meta });
 }
 
-export async function setSessionProject(
-  sessionId: string,
-  projectId: string | null,
-): Promise<void> {
-  const client = await getClient();
-  await client.extMethod("_goose/session/set_project", {
-    sessionId,
-    projectId,
-  });
-}
+

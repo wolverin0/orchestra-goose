@@ -27,7 +27,7 @@ import {
   useResolvedAgentModelPicker,
   type PreferredModelSelection,
 } from "./useResolvedAgentModelPicker";
-import { setSessionProject } from "@/shared/api/acpApi";
+import { updateSessionProject } from "@/shared/api/acpApi";
 
 interface UseChatSessionControllerOptions {
   sessionId: string | null;
@@ -299,7 +299,7 @@ export function useChatSessionController({
 
       useChatSessionStore.getState().updateSession(sessionId, { projectId });
 
-      void setSessionProject(sessionId, projectId).catch(console.error);
+      void updateSessionProject(sessionId, projectId).catch(console.error);
 
       if (!selectedProvider) {
         return;
@@ -654,7 +654,7 @@ export function useChatSessionController({
         }
         if (hasPendingProject) {
           patch.projectId = nextProjectId ?? null;
-          void setSessionProject(sessionId, nextProjectId ?? null).catch(
+          void updateSessionProject(sessionId, nextProjectId ?? null).catch(
             console.error,
           );
         }
