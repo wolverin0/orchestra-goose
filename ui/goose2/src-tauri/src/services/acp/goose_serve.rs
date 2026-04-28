@@ -1,7 +1,11 @@
+use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+
+use crate::services::distro_bundle::DistroBundleState;
 
 use tokio::process::{Child, Command};
 use tokio::sync::OnceCell;
@@ -55,6 +59,18 @@ impl GooseServeProcess {
 
         let mut command: Command = get_goose_command(&app_handle)?;
         let binary_display = command.as_std().get_program().to_string_lossy().to_string();
+
+        if let Some(distro_state) = app_handle.try_state::<DistroBundleState>() {
+            if let Some(bundle) = distro_state.bundle() {
+                if let Some(bin_dir) = &bundle.bin_dir {
+                    prepend_path_env(&mut command, bin_dir);
+                }
+                if let Some(config_path) = &bundle.config_path {
+                    command.env("GOOSE_DISTRO_CONFIG", config_path);
+                }
+                command.env("GOOSE_DISTRO_DIR", &bundle.root_dir);
+            }
+        }
 
         command
             .arg("serve")
@@ -136,6 +152,24 @@ fn default_serve_working_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join(".goose")
         .join("artifacts")
+}
+
+fn prepend_path_env(command: &mut Command, extra_dir: &std::path::Path) {
+    let mut paths = vec![extra_dir.to_path_buf()];
+    if let Some(existing) = std::env::var_os("PATH") {
+        paths.extend(std::env::split_paths(&existing));
+    }
+
+    if let Ok(joined) = std::env::join_paths(paths) {
+        command.env("PATH", joined);
+    } else {
+        let mut fallback = OsString::from(extra_dir.as_os_str());
+        if let Some(existing) = std::env::var_os("PATH") {
+            fallback.push(if cfg!(windows) { ";" } else { ":" });
+            fallback.push(existing);
+        }
+        command.env("PATH", fallback);
+    }
 }
 
 fn reserve_free_port() -> Result<u16, String> {

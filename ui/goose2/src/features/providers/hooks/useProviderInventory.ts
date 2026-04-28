@@ -7,8 +7,6 @@ import type {
 } from "@aaif/goose-sdk";
 import { getModelProviders } from "../providerCatalog";
 
-const MODEL_PROVIDER_IDS = new Set(getModelProviders().map((p) => p.id));
-
 function inventoryModelToOption(
   model: ProviderInventoryModelDto,
   provider?: Pick<ProviderInventoryEntryDto, "providerId" | "providerName">,
@@ -43,12 +41,17 @@ export function useProviderInventory() {
     [entries],
   );
 
+  const modelProviderIds = useMemo(
+    () => new Set(getModelProviders().map((provider) => provider.id)),
+    [],
+  );
+
   const configuredModelProviderEntries = useMemo(
     () =>
       [...entries.values()].filter(
-        (entry) => entry.configured && MODEL_PROVIDER_IDS.has(entry.providerId),
+        (entry) => entry.configured && modelProviderIds.has(entry.providerId),
       ),
-    [entries],
+    [entries, modelProviderIds],
   );
 
   const getModelsForAgent = useCallback(
@@ -67,8 +70,8 @@ export function useProviderInventory() {
   const configuredProviderIds = useMemo(
     () =>
       [...entries.values()]
-        .filter((e) => e.configured)
-        .map((e) => e.providerId),
+        .filter((entry) => entry.configured)
+        .map((entry) => entry.providerId),
     [entries],
   );
 

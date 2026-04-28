@@ -6,6 +6,7 @@ import type {
   DictationTranscribeResponse,
   WhisperModelStatus,
 } from "@/shared/types/dictation";
+import { filterDictationProvidersForDistro } from "@/features/chat/lib/distroDictation";
 import { getClient } from "./acpConnection";
 
 export async function getDictationConfig(): Promise<
@@ -13,10 +14,9 @@ export async function getDictationConfig(): Promise<
 > {
   const client = await getClient();
   const response = await client.goose.GooseDictationConfig({});
-  return response.providers as Record<
-    DictationProvider,
-    DictationProviderStatus
-  >;
+  return filterDictationProvidersForDistro(
+    response.providers as Record<DictationProvider, DictationProviderStatus>,
+  ) as Record<DictationProvider, DictationProviderStatus>;
 }
 
 export async function transcribeDictation(request: {

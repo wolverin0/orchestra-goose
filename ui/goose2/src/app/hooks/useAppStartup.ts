@@ -5,6 +5,7 @@ import { useProviderInventoryStore } from "@/features/providers/stores/providerI
 import { setNotificationHandler, getClient } from "@/shared/api/acpConnection";
 import notificationHandler from "@/shared/api/acpNotificationHandler";
 import { perfLog } from "@/shared/lib/perfLog";
+import { useDistroStore } from "@/features/settings/stores/distroStore";
 
 const INVENTORY_POLL_DELAYS_MS = [250, 500, 750, 1000, 1500, 2000];
 
@@ -30,6 +31,18 @@ export function useAppStartup() {
 
       const store = useAgentStore.getState();
       const inventoryStore = useProviderInventoryStore.getState();
+      const distroStore = useDistroStore.getState();
+      const loadDistroBundle = async () => {
+        try {
+          const { getDistroBundle } = await import("@/shared/api/distro");
+          const manifest = await getDistroBundle();
+          distroStore.setManifest(manifest);
+        } catch (err) {
+          console.error("Failed to load distro bundle on startup:", err);
+          distroStore.setManifest({ present: false });
+        }
+      };
+
       const loadPersonas = async () => {
         const t0 = performance.now();
         store.setPersonasLoading(true);
@@ -68,9 +81,8 @@ export function useAppStartup() {
         const t0 = performance.now();
         inventoryStore.setLoading(true);
         try {
-          const { getProviderInventory } = await import(
-            "@/features/providers/api/inventory"
-          );
+          const { getProviderInventory } =
+            await import("@/features/providers/api/inventory");
           const entries = await getProviderInventory();
           inventoryStore.setEntries(entries);
           perfLog(
@@ -93,9 +105,8 @@ export function useAppStartup() {
             initialEntries && initialEntries.length > 0
               ? initialEntries
               : await (async () => {
-                  const { getProviderInventory } = await import(
-                    "@/features/providers/api/inventory"
-                  );
+                  const { getProviderInventory } =
+                    await import("@/features/providers/api/inventory");
                   return getProviderInventory();
                 })();
           const configuredProviderIds = entries
@@ -149,6 +160,7 @@ export function useAppStartup() {
       const inventoryLoad = loadProviderInventory();
 
       await Promise.allSettled([
+        loadDistroBundle(),
         loadPersonas(),
         loadProviders(),
         inventoryLoad,

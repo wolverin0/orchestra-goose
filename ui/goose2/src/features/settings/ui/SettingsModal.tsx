@@ -31,6 +31,11 @@ import { ExtensionsSettings } from "@/features/extensions/ui/ExtensionsSettings"
 import { VoiceInputSettings } from "./VoiceInputSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { CompactionSettings } from "./CompactionSettings";
+import { useDistroStore } from "@/features/settings/stores/distroStore";
+import {
+  DISTRO_FEATURE_SETTINGS_V2,
+  isDistroFeatureEnabled,
+} from "@/features/settings/lib/distroSelectors";
 import {
   listArchivedProjects,
   restoreProject,
@@ -68,6 +73,7 @@ export function SettingsModal({
   initialSection = "appearance",
 }: SettingsModalProps) {
   const { t } = useTranslation(["settings", "common"]);
+  const distro = useDistroStore((state) => state.manifest);
   const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -132,7 +138,12 @@ export function SettingsModal({
     return () => clearTimeout(timer);
   }, [activeSection]);
 
-  const navItems = NAV_ITEMS.map((item) => ({
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (item.id === "general" || item.id === "about") {
+      return isDistroFeatureEnabled(distro, DISTRO_FEATURE_SETTINGS_V2);
+    }
+    return true;
+  }).map((item) => ({
     ...item,
     label: t(item.labelKey),
   }));
@@ -242,7 +253,10 @@ export function SettingsModal({
               {activeSection === "extensions" && <ExtensionsSettings />}
               {activeSection === "voice" && <VoiceInputSettings />}
               {activeSection === "doctor" && <DoctorSettings />}
-              {activeSection === "general" && <GeneralSettings />}
+              {activeSection === "general" &&
+                isDistroFeatureEnabled(distro, DISTRO_FEATURE_SETTINGS_V2) && (
+                  <GeneralSettings />
+                )}
               {activeSection === "projects" && (
                 <div className="space-y-6">
                   <div>
@@ -354,16 +368,17 @@ export function SettingsModal({
                   </div>
                 </div>
               )}
-              {activeSection === "about" && (
-                <div>
-                  <h3 className="text-lg font-semibold font-display tracking-tight">
-                    {t("about.title")}
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {t("about.description")}
-                  </p>
-                </div>
-              )}
+              {activeSection === "about" &&
+                isDistroFeatureEnabled(distro, DISTRO_FEATURE_SETTINGS_V2) && (
+                  <div>
+                    <h3 className="text-lg font-semibold font-display tracking-tight">
+                      {t("about.title")}
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {t("about.description")}
+                    </p>
+                  </div>
+                )}
             </div>
           </div>
         </div>
