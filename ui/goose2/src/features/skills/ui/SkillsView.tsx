@@ -3,16 +3,15 @@ import { useTranslation } from "react-i18next";
 import { Plus, Upload } from "lucide-react";
 import { useProjectStore } from "@/features/projects/stores/projectStore";
 import { cn } from "@/shared/lib/cn";
-import { SearchBar } from "@/shared/ui/SearchBar";
 import { Button } from "@/shared/ui/button";
-import { FilterRow, PageHeader, PageShell } from "@/shared/ui/page-shell";
+import { PageHeader, PageShell } from "@/shared/ui/page-shell";
 import { useFileImportZone } from "@/shared/hooks/useFileImportZone";
 import { revealInFileManager } from "@/shared/lib/fileManager";
-import { SkillCategoryFilter } from "./SkillCategoryFilter";
 import { SkillDetailPage } from "./SkillDetailPage";
 import { SkillsDialogs } from "./SkillsDialogs";
 import { SkillsEmptyState } from "./SkillsEmptyState";
 import { SkillsListSections, type SkillsSection } from "./SkillsListSections";
+import { SkillsToolbar, type SkillsFilter } from "./SkillsToolbar";
 import { hydrateProjectNames } from "../lib/projectHydration";
 import {
   compareSkillsByName,
@@ -33,31 +32,8 @@ import {
   type SkillViewInfo,
 } from "../lib/skillCategories";
 
-type SkillsFilter = "all" | "global" | `project:${string}`;
-
 interface SkillsViewProps {
   onStartChatWithSkill?: (skillName: string, projectId?: string | null) => void;
-}
-
-function FilterButton({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      size="xs"
-      variant={active ? "default" : "outline-flat"}
-      onClick={onClick}
-    >
-      {children}
-    </Button>
-  );
 }
 
 export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
@@ -85,7 +61,6 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
   const [notification, setNotification] = useState<string | null>(null);
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
   const [expandedSectionIds, setExpandedSectionIds] = useState<string[]>([]);
-  const importInputRef = useRef<HTMLInputElement>(null);
   const loadRequestIdRef = useRef(0);
 
   const loadSkills = useCallback(async () => {
@@ -288,27 +263,6 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
     [onStartChatWithSkill],
   );
 
-  const handleImportFile = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const bytes = Array.from(new Uint8Array(arrayBuffer));
-        await importSkills(bytes, file.name);
-        await loadSkills();
-      } catch (error) {
-        console.error("Failed to import skill:", error);
-      }
-
-      if (importInputRef.current) {
-        importInputRef.current.value = "";
-      }
-    },
-    [loadSkills],
-  );
-
   const handleDialogClose = () => {
     setDialogOpen(false);
     setEditingSkill(undefined);
@@ -319,7 +273,7 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
     setDialogOpen(true);
   };
 
-  const handleDropImport = useCallback(
+  const handleImport = useCallback(
     async (fileBytes: number[], fileName: string) => {
       try {
         await importSkills(fileBytes, fileName);
@@ -332,11 +286,12 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
   );
 
   const {
-    fileInputRef: dropFileInputRef,
+    fileInputRef,
     isDragOver,
     dropHandlers,
-    handleFileChange: handleDropFileChange,
-  } = useFileImportZone({ onImportFile: handleDropImport });
+    handleFileChange,
+    openFilePicker,
+  } = useFileImportZone({ onImportFile: handleImport });
 
   const handleSelectSkill = (skill: SkillViewInfo) => {
     setActiveSkillId(skill.id);
@@ -380,18 +335,11 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
         titleClassName="font-normal text-foreground"
         actions={
           <>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".skill.json,.json"
-              className="hidden"
-              onChange={handleImportFile}
-            />
             <Button
               type="button"
               variant="outline-flat"
               size="xs"
-              onClick={() => importInputRef.current?.click()}
+              onClick={openFilePicker}
             >
               <Upload className="size-3.5" />
               {t("common:actions.import")}
@@ -416,47 +364,16 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
           isDragOver && "bg-muted/50",
         )}
       >
-        <div className="space-y-3">
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder={t("view.searchPlaceholder")}
-          />
-
-          <FilterRow>
-            <FilterButton
-              active={activeFilter === "all"}
-              onClick={() => setActiveFilter("all")}
-            >
-              {t("view.filtersAllSources")}
-            </FilterButton>
-            <FilterButton
-              active={activeFilter === "global"}
-              onClick={() => setActiveFilter("global")}
-            >
-              {t("view.filtersGlobal")}
-            </FilterButton>
-            {projectFilters.map((project) => {
-              const filterValue = `project:${project.id}` as const;
-              return (
-                <FilterButton
-                  key={project.id}
-                  active={activeFilter === filterValue}
-                  onClick={() => setActiveFilter(filterValue)}
-                >
-                  {project.name}
-                </FilterButton>
-              );
-            })}
-            {categoryFilters.length > 0 ? (
-              <SkillCategoryFilter
-                categories={categoryFilters}
-                selectedCategories={selectedCategories}
-                onSelectedCategoriesChange={setSelectedCategories}
-              />
-            ) : null}
-          </FilterRow>
-        </div>
+        <SkillsToolbar
+          search={search}
+          onSearchChange={setSearch}
+          activeFilter={activeFilter}
+          onActiveFilterChange={setActiveFilter}
+          projectFilters={projectFilters}
+          categoryFilters={categoryFilters}
+          selectedCategories={selectedCategories}
+          onSelectedCategoriesChange={setSelectedCategories}
+        />
       </div>
 
       {!loading && filteredSkills.length > 0 ? (
@@ -475,16 +392,16 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
           isDragOver={isDragOver}
           dropHandlers={dropHandlers}
           onNewSkill={handleNewSkill}
-          onImport={() => importInputRef.current?.click()}
+          onImport={openFilePicker}
         />
       ) : null}
 
       <input
-        ref={dropFileInputRef}
+        ref={fileInputRef}
         type="file"
         accept=".skill.json,.json"
         className="hidden"
-        onChange={handleDropFileChange}
+        onChange={handleFileChange}
       />
 
       {dialogs}
