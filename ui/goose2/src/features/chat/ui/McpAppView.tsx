@@ -13,7 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getClient } from "@/shared/api/acpConnection";
 import { getGooseServeHostInfo } from "@/shared/api/gooseServeHost";
-import { cn } from "@/shared/lib/cn";
 import { useTheme } from "@/shared/theme/ThemeProvider";
 import type {
   McpAppPayload,
@@ -353,6 +352,12 @@ export function McpAppView({
     renderableDocument !== null && sandbox !== null && renderError === null;
   const shouldShowFallback =
     renderError !== null || renderableDocument === null;
+  const appChromeClassName = renderableDocument?.prefersBorder
+    ? "w-full overflow-hidden rounded-xl border border-border-primary bg-background/40 shadow-sm"
+    : "w-full bg-transparent";
+  const loadingClassName = renderableDocument?.prefersBorder
+    ? "rounded-xl border border-dashed border-border px-4 py-3 text-muted-foreground text-sm"
+    : "py-1 text-muted-foreground text-sm";
 
   useEffect(() => {
     if (!import.meta.env.DEV || !shouldShowFallback) {
@@ -381,14 +386,7 @@ export function McpAppView({
   return (
     <div ref={rootRef} className="my-3 w-full" data-testid="mcp-app-view">
       {shouldRenderApp ? (
-        <div
-          className={cn(
-            "w-full overflow-hidden rounded-lg bg-background/40",
-            renderableDocument.prefersBorder &&
-              "border border-border-primary shadow-sm",
-          )}
-          style={{ height: inlineHeight }}
-        >
+        <div className={appChromeClassName} style={{ height: inlineHeight }}>
           <AppRenderer
             toolName={payload.tool.name}
             toolResourceUri={renderableDocument.resourceUri}
@@ -406,9 +404,7 @@ export function McpAppView({
           />
         </div>
       ) : renderableDocument && renderError === null ? (
-        <div className="rounded-lg border border-dashed border-border px-4 py-3 text-muted-foreground text-sm">
-          {t("message.mcpAppLoading")}
-        </div>
+        <div className={loadingClassName}>{t("message.mcpAppLoading")}</div>
       ) : null}
 
       {shouldShowFallback && (

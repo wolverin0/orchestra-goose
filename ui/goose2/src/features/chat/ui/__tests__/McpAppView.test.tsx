@@ -57,7 +57,11 @@ vi.mock("@/shared/theme/ThemeProvider", () => ({
   useTheme: () => ({ resolvedTheme: "dark" }),
 }));
 
-function createPayload(): McpAppPayload {
+function createPayload({
+  prefersBorder = true,
+}: {
+  prefersBorder?: boolean;
+} = {}): McpAppPayload {
   return {
     sessionId: "local-session",
     gooseSessionId: null,
@@ -76,6 +80,11 @@ function createPayload(): McpAppPayload {
             uri: "ui://inspect-messaging",
             mimeType: "text/html;profile=mcp-app",
             text: "<div>Messaging Inspector</div>",
+            _meta: {
+              ui: {
+                prefersBorder,
+              },
+            },
           },
         ],
       },
@@ -187,5 +196,43 @@ describe("McpAppView nested tool calls", () => {
         }),
       }),
     );
+  });
+
+  it("only applies rounded border chrome when the app prefers a border", async () => {
+    const { rerender } = render(
+      <McpAppView
+        payload={createPayload()}
+        toolResponse={createToolResponse()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("mock-app-renderer")).toBeInTheDocument();
+    });
+
+    const borderedChrome = screen.getByTestId("mcp-app-view")
+      .firstElementChild as HTMLElement | null;
+    expect(borderedChrome).not.toBeNull();
+    expect(borderedChrome?.className).toContain("rounded-xl");
+    expect(borderedChrome?.className).toContain("border");
+
+    rerender(
+      <McpAppView
+        payload={createPayload({ prefersBorder: false })}
+        toolResponse={createToolResponse()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("mock-app-renderer")).toBeInTheDocument();
+    });
+
+    const borderlessChrome = screen.getByTestId("mcp-app-view")
+      .firstElementChild as HTMLElement | null;
+    expect(borderlessChrome).not.toBeNull();
+    expect(borderlessChrome?.className).not.toContain("rounded-xl");
+    expect(borderlessChrome?.className).not.toContain("border");
+    expect(borderlessChrome?.className).not.toContain("shadow-sm");
+    expect(borderlessChrome?.className).not.toContain("overflow-hidden");
   });
 });
