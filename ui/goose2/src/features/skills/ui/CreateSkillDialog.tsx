@@ -11,6 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
+import { useProjectStore } from "@/features/projects/stores/projectStore";
 import { createSkill, updateSkill } from "../api/skills";
 
 const MAX_SKILL_NAME_LENGTH = 64;
@@ -77,6 +85,10 @@ export function CreateSkillDialog({
   const [instructions, setInstructions] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("global");
+
+  const projects = useProjectStore((s) => s.projects);
+  const projectsWithDirs = projects.filter((p) => p.workingDirs.length > 0);
 
   const isEditing = !!editingSkill;
 
@@ -92,6 +104,7 @@ export function CreateSkillDialog({
       setDescription("");
       setInstructions("");
       setError(null);
+      setSelectedProjectId("global");
     }
   }, [isOpen, editingSkill]);
 
@@ -125,7 +138,9 @@ export function CreateSkillDialog({
           instructions,
         );
       } else {
-        await createSkill(name, description.trim(), instructions);
+        await createSkill(name, description.trim(), instructions,
+          selectedProjectId !== "global" ? { projectId: selectedProjectId } : undefined,
+        );
       }
       setName("");
       setDescription("");
@@ -169,6 +184,31 @@ export function CreateSkillDialog({
               </p>
             )}
           </div>
+
+          {/* Save location — only for new skills when projects exist */}
+          {!isEditing && projectsWithDirs.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs font-medium text-muted-foreground">
+                {t("dialog.saveLocation")}
+              </Label>
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="global">{t("dialog.scopeGlobal")}</SelectItem>
+                  {projectsWithDirs.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.icon} {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                {t("dialog.saveLocationHint")}
+              </p>
+            </div>
+          )}
 
           {/* Description */}
           <div className="space-y-1">

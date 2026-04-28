@@ -11,12 +11,14 @@
     "instructionsPlaceholder": "Markdown instructions the agent will follow...",
     "name": "Name",
     "namePlaceholder": "my-skill-name",
-    "nameValidation": "Use 1–64 lowercase letters, numbers, or hyphens. Names cannot start or end with a hyphen.",
+    "nameValidation": "Use 1\u201364 lowercase letters, numbers, or hyphens. Names cannot start or end with a hyphen.",
     "pathOnDisk": "Path on disk",
     "newTitle": "New Skill",
     "projectHint": "Stored in the project folder",
     "saveLocation": "Save to",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "scopeGlobal": "Global",
+    "saveLocationHint": "Global skills are available in all sessions. Project skills are stored in the project directory."
   },
   "view": {
     "backToSkills": "Back to skills",
