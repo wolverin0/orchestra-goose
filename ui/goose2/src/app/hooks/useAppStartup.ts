@@ -6,6 +6,8 @@ import { discoverAcpProvidersFromEntries } from "@/shared/api/acp";
 import { setNotificationHandler, getClient } from "@/shared/api/acpConnection";
 import notificationHandler from "@/shared/api/acpNotificationHandler";
 import { perfLog } from "@/shared/lib/perfLog";
+import { parseProviderAllowlist } from "@/features/providers/distroProviderConstraints";
+import { getModelProviders } from "@/features/providers/providerCatalog";
 import { useDistroStore } from "@/features/settings/stores/distroStore";
 
 export function useAppStartup() {
@@ -70,7 +72,22 @@ export function useAppStartup() {
 
           // Derive ACP providers from the same response
           const providers = discoverAcpProvidersFromEntries(entries);
-          store.setProviders(providers);
+          const providerAllowlist = parseProviderAllowlist(
+            useDistroStore.getState().manifest,
+          );
+          if (!providerAllowlist) {
+            store.setProviders(providers);
+          } else {
+            const hasAllowedModelProvider = getModelProviders().some(
+              (provider) => providerAllowlist.has(provider.id),
+            );
+            store.setProviders(
+              providers.filter(
+                (provider) =>
+                  provider.id !== "goose" || hasAllowedModelProvider,
+              ),
+            );
+          }
 
           perfLog(
             `[perf:startup] loadProvidersAndInventory done in ${(performance.now() - t0).toFixed(1)}ms (entries=${entries.length}, providers=${providers.length})`,
@@ -101,8 +118,15 @@ export function useAppStartup() {
                   );
                   return getProviderInventory();
                 })();
+          const providerAllowlist = parseProviderAllowlist(
+            useDistroStore.getState().manifest,
+          );
           const configuredProviderIds = entries
-            .filter((entry) => entry.configured)
+            .filter(
+              (entry) =>
+                entry.configured &&
+                (!providerAllowlist || providerAllowlist.has(entry.providerId)),
+            )
             .map((entry) => entry.providerId);
           if (configuredProviderIds.length === 0) {
             return;
@@ -134,10 +158,11 @@ export function useAppStartup() {
         setActiveSession(null);
       };
 
+      await loadDistroBundle();
+
       const providersAndInventoryLoad = loadProvidersAndInventory();
 
       await Promise.allSettled([
-        loadDistroBundle(),
         loadPersonas(),
         providersAndInventoryLoad,
         loadSessionState(),

@@ -39,7 +39,6 @@ describe("filterModelProvidersForDistro", () => {
     expect(
       filterModelProvidersForDistro([...providers], {
         present: true,
-        security: {},
       }),
     ).toEqual(providers);
   });
@@ -48,9 +47,7 @@ describe("filterModelProvidersForDistro", () => {
     expect(
       filterModelProvidersForDistro([...providers], {
         present: true,
-        security: {
-          providerAllowlist: "openai, ollama",
-        },
+        providerAllowlist: "openai, ollama",
       }),
     ).toEqual([providers[1], providers[2]]);
   });
@@ -59,9 +56,7 @@ describe("filterModelProvidersForDistro", () => {
     expect(
       filterModelProvidersForDistro([...providers], {
         present: true,
-        security: {
-          providerAllowlist: "  anthropic ,, openai  ",
-        },
+        providerAllowlist: "  anthropic ,, openai  ",
       }),
     ).toEqual([providers[0], providers[1]]);
   });

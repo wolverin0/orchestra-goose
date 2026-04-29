@@ -12,17 +12,11 @@ const DISTRO_OVERRIDE_ENV: &str = "GOOSE_DISTRO_DIR";
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DistroSecurityManifest {
-    pub extension_allowlist: Option<String>,
-    pub provider_allowlist: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DistroManifest {
     pub app_version: Option<String>,
     pub feature_toggles: Option<HashMap<String, bool>>,
-    pub security: Option<DistroSecurityManifest>,
+    pub extension_allowlist: Option<String>,
+    pub provider_allowlist: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -31,7 +25,8 @@ pub struct DistroBundleInfo {
     pub present: bool,
     pub app_version: Option<String>,
     pub feature_toggles: Option<HashMap<String, bool>>,
-    pub security: Option<DistroSecurityManifest>,
+    pub extension_allowlist: Option<String>,
+    pub provider_allowlist: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -65,7 +60,8 @@ impl DistroBundleState {
                 present: false,
                 app_version: None,
                 feature_toggles: None,
-                security: None,
+                extension_allowlist: None,
+                provider_allowlist: None,
             };
         };
 
@@ -73,7 +69,8 @@ impl DistroBundleState {
             present: true,
             app_version: bundle.manifest.app_version.clone(),
             feature_toggles: bundle.manifest.feature_toggles.clone(),
-            security: bundle.manifest.security.clone(),
+            extension_allowlist: bundle.manifest.extension_allowlist.clone(),
+            provider_allowlist: bundle.manifest.provider_allowlist.clone(),
         }
     }
 

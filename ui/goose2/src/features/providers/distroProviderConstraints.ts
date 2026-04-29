@@ -1,14 +1,14 @@
 import type { ProviderCatalogEntry } from "@/shared/types/providers";
 import type { DistroBundleInfo } from "@/shared/types/distro";
 
-function parseProviderAllowlist(
+export function parseProviderAllowlist(
   distro: DistroBundleInfo | null | undefined,
 ): Set<string> | null {
   if (!distro?.present) {
     return null;
   }
 
-  const raw = distro.security?.providerAllowlist?.trim();
+  const raw = distro.providerAllowlist?.trim();
   if (!raw) {
     return null;
   }

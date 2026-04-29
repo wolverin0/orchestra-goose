@@ -31,9 +31,7 @@ Example:
   "featureToggles": {
     "costTracking": false
   },
-  "security": {
-    "providerAllowlist": "databricks"
-  }
+  "providerAllowlist": "databricks"
 }
 ```
 
@@ -49,13 +47,14 @@ Example:
       - `false` hides cost UI in the token/context usage surfaces
       - omitted behaves as enabled
 
-- `security?: { providerAllowlist?: string, extensionAllowlist?: string }`
-  - optional policy controls
-  - currently used:
-    - `providerAllowlist`
-      - comma-separated provider ids
-      - limits visible model providers in Settings
-      - limits visible Goose model options in the chat model picker
+- `providerAllowlist?: string`
+  - comma-separated provider ids
+  - suggests which model providers to show in Settings
+  - suggests which Goose model options to show in the chat model picker
+
+- `extensionAllowlist?: string`
+  - comma-separated extension ids
+  - reserved for future UI suggestions
 
 ## Runtime effects
 
@@ -70,6 +69,8 @@ Today it uses that manifest to:
 - filter model providers shown in provider settings via `providerAllowlist`
 - filter Goose model options shown in the chat input model picker via `providerAllowlist`
 - hide cost UI when `featureToggles.costTracking === false`
+
+These allowlists are UI suggestions only. They do not enforce backend access control and do not invalidate existing sessions or saved model choices.
 
 ### Backend / shell behavior
 
@@ -94,7 +95,7 @@ Use distro bundles for packaged-app policy and shell-level defaults.
 Good fits:
 
 - feature flags for Goose2 UI behavior
-- allowlists that constrain visible product choices
+- allowlists that suggest visible product choices
 - config or helper binaries that should be present when `goose serve` starts
 
 Avoid using distro bundles as a replacement for normal app state, user settings, or ACP-backed domain data.

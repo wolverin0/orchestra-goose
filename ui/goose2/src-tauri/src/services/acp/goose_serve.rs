@@ -66,7 +66,7 @@ impl GooseServeProcess {
                     prepend_path_env(&mut command, bin_dir);
                 }
                 if let Some(config_path) = &bundle.config_path {
-                    command.env("GOOSE_ADDITIONAL_CONFIG_FILES", config_path);
+                    append_additional_config_env(&mut command, config_path);
                 }
                 command.env("GOOSE_DISTRO_DIR", &bundle.root_dir);
             }
@@ -160,15 +160,45 @@ fn prepend_path_env(command: &mut Command, extra_dir: &std::path::Path) {
         paths.extend(std::env::split_paths(&existing));
     }
 
-    if let Ok(joined) = std::env::join_paths(paths) {
-        command.env("PATH", joined);
+    set_path_list_env(command, "PATH", paths, Some(extra_dir.as_os_str()));
+}
+
+fn append_additional_config_env(command: &mut Command, config_path: &std::path::Path) {
+    let existing = std::env::var_os("GOOSE_ADDITIONAL_CONFIG_FILES");
+    let mut paths: Vec<PathBuf> = existing
+        .as_ref()
+        .map(std::env::split_paths)
+        .map(Iterator::collect)
+        .unwrap_or_default();
+    paths.push(config_path.to_path_buf());
+
+    if let Ok(joined) = std::env::join_paths(&paths) {
+        command.env("GOOSE_ADDITIONAL_CONFIG_FILES", joined);
     } else {
-        let mut fallback = OsString::from(extra_dir.as_os_str());
-        if let Some(existing) = std::env::var_os("PATH") {
+        let mut fallback = existing.unwrap_or_default();
+        if !fallback.is_empty() {
             fallback.push(if cfg!(windows) { ";" } else { ":" });
-            fallback.push(existing);
         }
-        command.env("PATH", fallback);
+        fallback.push(config_path.as_os_str());
+        command.env("GOOSE_ADDITIONAL_CONFIG_FILES", fallback);
+    }
+}
+
+fn set_path_list_env(
+    command: &mut Command,
+    key: &str,
+    paths: Vec<PathBuf>,
+    fallback_prefix: Option<&std::ffi::OsStr>,
+) {
+    if let Ok(joined) = std::env::join_paths(&paths) {
+        command.env(key, joined);
+    } else if let Some(prefix) = fallback_prefix {
+        let mut fallback = OsString::from(prefix);
+        for path in paths.iter().skip(1) {
+            fallback.push(if cfg!(windows) { ";" } else { ":" });
+            fallback.push(path.as_os_str());
+        }
+        command.env(key, fallback);
     }
 }
 
