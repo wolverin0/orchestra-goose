@@ -126,7 +126,62 @@ describe("ChatView MCP app messaging", () => {
     const chatInputProps = mocks.chatInputSpy.mock.calls.at(-1)?.[0] as {
       className?: string;
     };
+    expect(chatInputProps.className).toBeUndefined();
+  });
+
+  it("overlaps the composer when the latest visible content is an MCP app", () => {
+    mocks.useChatSessionController.mockReturnValue({
+      ...mocks.useChatSessionController(),
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          created: Date.now(),
+          content: [
+            {
+              type: "mcpApp",
+              id: "mcp-app-1",
+              payload: {},
+            },
+          ],
+        },
+      ],
+    });
+
+    render(<ChatView sessionId="session-1" />);
+
+    expect(mocks.chatInputSpy).toHaveBeenCalled();
+    const chatInputProps = mocks.chatInputSpy.mock.calls.at(-1)?.[0] as {
+      className?: string;
+    };
     expect(chatInputProps.className).toBe("-mt-4");
+  });
+
+  it("does not overlap the composer when reasoning is the latest visible content", () => {
+    mocks.useChatSessionController.mockReturnValue({
+      ...mocks.useChatSessionController(),
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          created: Date.now(),
+          content: [
+            {
+              type: "reasoning",
+              text: "Working through it",
+            },
+          ],
+        },
+      ],
+    });
+
+    render(<ChatView sessionId="session-1" />);
+
+    expect(mocks.chatInputSpy).toHaveBeenCalled();
+    const chatInputProps = mocks.chatInputSpy.mock.calls.at(-1)?.[0] as {
+      className?: string;
+    };
+    expect(chatInputProps.className).toBeUndefined();
   });
 
   it("does not overlap the composer over the loading indicator", () => {

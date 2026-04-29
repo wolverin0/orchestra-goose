@@ -11,6 +11,7 @@ import { ArtifactPolicyProvider } from "../hooks/ArtifactPolicyContext";
 import { ChatContextPanel } from "./ChatContextPanel";
 import { perfLog } from "@/shared/lib/perfLog";
 import { useChatSessionController } from "../hooks/useChatSessionController";
+import type { Message } from "@/shared/types/messages";
 
 interface ChatViewProps {
   sessionId: string;
@@ -18,6 +19,26 @@ interface ChatViewProps {
   onCreateProject?: (options?: {
     onCreated?: (projectId: string) => void;
   }) => void;
+}
+
+function shouldOverlapComposerWithLatestMcpApp(messages: Message[]): boolean {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (
+      message.metadata?.userVisible === false ||
+      (message.role === "assistant" &&
+        message.content.length === 0 &&
+        message.metadata?.completionStatus === "inProgress")
+    ) {
+      continue;
+    }
+
+    return (
+      message.role === "assistant" && message.content.at(-1)?.type === "mcpApp"
+    );
+  }
+
+  return false;
 }
 
 export function ChatView({
@@ -80,6 +101,9 @@ export function ChatView({
     showIndicator && !controller.isLoadingHistory;
   const shouldReserveComposerGap =
     shouldShowLoadingIndicator || isLoadingIndicatorMounted;
+  const shouldOverlapComposer =
+    !shouldReserveComposerGap &&
+    shouldOverlapComposerWithLatestMcpApp(controller.messages);
 
   useEffect(() => {
     if (shouldShowLoadingIndicator) {
@@ -126,7 +150,7 @@ export function ChatView({
           </AnimatePresence>
 
           <ChatInput
-            className={shouldReserveComposerGap ? undefined : "-mt-4"}
+            className={shouldOverlapComposer ? "-mt-4" : undefined}
             onSend={controller.handleSend}
             disabled={
               controller.projectMetadataPending ||
