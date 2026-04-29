@@ -1,0 +1,32 @@
+# orchestra-goose per-project config template.
+# Copy to <project>/.goose/project.toml and customize.
+# Read by: lookahead-brief recipe, monitor-active-tasks recipe.
+
+[project]
+name = "wezbridge"
+scope = "project:wezbridge"  # MemoryMaster scope filter
+
+[orchestration]
+# Enable look-ahead briefer for this project (gates the recipe firing).
+lookahead_enabled = true
+# Path to the active-task pointer (relative to project root).
+# Defaults: vault/active_tasks.md, else active_tasks.md at root.
+active_tasks_path = "vault/active_tasks.md"
+# Optional: roadmap file to use as fallback if no active_tasks.md.
+roadmap_file = "docs/PLAN-OF-TRUTH.md"
+
+[monitoring]
+# Stuck-task threshold (minutes of no progress).
+stuck_threshold_minutes = 10
+# Telegram chat to escalate to (or "none" / "log-only").
+escalation_channel = "log-only"
+
+[recipes]
+# Default recipe set to enable for this project.
+enabled = ["lookahead-brief", "project-doctor"]
+
+[extensions]
+# Override default extensions per-project here. Empty = use distro defaults.
+# Example: enable code_execution only in heavy-coding projects.
+extra_enabled = []
+extra_disabled = []
