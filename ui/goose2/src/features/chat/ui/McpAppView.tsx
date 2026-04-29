@@ -407,9 +407,6 @@ export function McpAppView({
     requestAutoScroll();
   }, [requestAutoScroll, shouldRenderApp]);
 
-  // Step 3 starts by rendering the stored MCP App payload inline. If anything
-  // goes wrong, we intentionally keep the JSON snapshot visible so the chat
-  // still exposes the persisted payload we built in step 2.
   return (
     <div ref={rootRef} className="my-3 w-full" data-testid="mcp-app-view">
       {shouldRenderApp ? (
