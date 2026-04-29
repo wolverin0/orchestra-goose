@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@mcp-ui/client", () => ({
+  UI_EXTENSION_CONFIG: { mimeTypes: ["text/html;profile=mcp-app"] },
   AppRenderer: (props: AppRendererProps) => {
     mocks.appRendererSpy(props);
 

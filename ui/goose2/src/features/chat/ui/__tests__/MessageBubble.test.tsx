@@ -8,6 +8,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 const mockWriteText = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@mcp-ui/client", () => ({
+  UI_EXTENSION_CONFIG: { mimeTypes: ["text/html;profile=mcp-app"] },
   AppRenderer: (props: { toolName?: string }) => (
     <div data-testid="mock-app-renderer">
       {props.toolName ?? "app-renderer"}

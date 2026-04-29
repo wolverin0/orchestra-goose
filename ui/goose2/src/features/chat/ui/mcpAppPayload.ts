@@ -2,7 +2,7 @@ import type {
   GooseResourceMetadata,
   GooseTextResourceContents,
 } from "@aaif/goose-sdk";
-import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/app-bridge";
+import { UI_EXTENSION_CONFIG } from "@mcp-ui/client";
 import type { McpAppPayload } from "@/shared/types/messages";
 
 export interface McpAppResourceCsp {
@@ -25,6 +25,8 @@ type TextContentWithMeta = GooseTextResourceContents & {
   meta?: Record<string, unknown>;
 };
 
+const MCP_APP_RESOURCE_MIME_TYPE = UI_EXTENSION_CONFIG.mimeTypes[0];
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -46,7 +48,7 @@ function getResourceMetadata(
 }
 
 function getContentPriority(content: TextContentWithMeta): number {
-  if (content.mimeType === RESOURCE_MIME_TYPE) {
+  if (content.mimeType === MCP_APP_RESOURCE_MIME_TYPE) {
     return 0;
   }
 

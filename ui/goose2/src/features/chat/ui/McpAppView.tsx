@@ -4,10 +4,6 @@ import {
   type McpUiHostContext,
 } from "@mcp-ui/client";
 import type { GooseToolCallResponse } from "@aaif/goose-sdk";
-import type {
-  CallToolResult,
-  ReadResourceResult,
-} from "@modelcontextprotocol/sdk/types.js";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -53,6 +49,12 @@ type SizeChangedParams = Parameters<
   NonNullable<AppRendererProps["onSizeChanged"]>
 >[0];
 type MessageParams = Parameters<NonNullable<AppRendererProps["onMessage"]>>[0];
+type CallToolResult = Awaited<
+  ReturnType<NonNullable<AppRendererProps["onCallTool"]>>
+>;
+type ReadResourceResult = Awaited<
+  ReturnType<NonNullable<AppRendererProps["onReadResource"]>>
+>;
 
 function appendDomains(
   params: URLSearchParams,

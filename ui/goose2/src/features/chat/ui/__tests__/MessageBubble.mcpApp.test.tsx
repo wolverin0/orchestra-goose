@@ -5,6 +5,7 @@ import { useAgentStore } from "@/features/agents/stores/agentStore";
 import type { Message } from "@/shared/types/messages";
 
 vi.mock("@mcp-ui/client", () => ({
+  UI_EXTENSION_CONFIG: { mimeTypes: ["text/html;profile=mcp-app"] },
   AppRenderer: (props: { toolName?: string }) => (
     <div data-testid="mock-app-renderer">
       {props.toolName ?? "app-renderer"}
