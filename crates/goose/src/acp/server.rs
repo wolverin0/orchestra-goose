@@ -900,79 +900,74 @@ impl GooseAcpAgent {
 
         let mut prebuilt_provider = None;
         if should_refresh_inventory_for_session_init(&inventory) {
+            let config = Config::global();
+            let ext_state = EnabledExtensionsState::extensions_or_default(
+                Some(&goose_session.extension_data),
+                config,
+            );
+            match self
+                .create_provider(provider_name, model_config.clone(), ext_state)
+                .await
             {
-                let config = Config::global();
-                let ext_state = EnabledExtensionsState::extensions_or_default(
-                    Some(&goose_session.extension_data),
-                    config,
-                );
-                match self
-                    .create_provider(provider_name, model_config.clone(), ext_state)
-                    .await
-                {
-                    Ok(provider) => {
-                        let provider_id = provider_name.clone();
-                        prebuilt_provider = Some(provider.clone());
-                        match self
-                            .provider_inventory
-                            .plan_refresh(std::slice::from_ref(&provider_id))
-                            .await
-                        {
-                            Ok(plan) if plan.started.iter().any(|id| id == &provider_id) => {
-                                match provider.fetch_recommended_models().await {
-                                    Ok(models) => {
-                                        if let Err(error) = self
-                                            .provider_inventory
-                                            .store_refreshed_models(&provider_id, &models)
-                                            .await
-                                        {
-                                            warn!(
-                                                provider = %provider_id,
-                                                error = %error,
-                                                "failed to store refreshed provider inventory during session init"
-                                            );
-                                        }
+                Ok(provider) => {
+                    let provider_id = provider_name.clone();
+                    prebuilt_provider = Some(provider.clone());
+                    match self
+                        .provider_inventory
+                        .plan_refresh(std::slice::from_ref(&provider_id))
+                        .await
+                    {
+                        Ok(plan) if plan.started.iter().any(|id| id == &provider_id) => {
+                            match provider.fetch_recommended_models().await {
+                                Ok(models) => {
+                                    if let Err(error) = self
+                                        .provider_inventory
+                                        .store_refreshed_models(&provider_id, &models)
+                                        .await
+                                    {
+                                        warn!(
+                                            provider = %provider_id,
+                                            error = %error,
+                                            "failed to store refreshed provider inventory during session init"
+                                        );
                                     }
-                                    Err(error) => {
-                                        if let Err(store_error) = self
-                                            .provider_inventory
-                                            .store_refresh_error(
-                                                &provider_id,
-                                                error.to_string(),
-                                            )
-                                            .await
-                                        {
-                                            warn!(
-                                                provider = %provider_id,
-                                                error = %store_error,
-                                                "failed to store provider inventory refresh error during session init"
-                                            );
-                                        }
+                                }
+                                Err(error) => {
+                                    if let Err(store_error) = self
+                                        .provider_inventory
+                                        .store_refresh_error(&provider_id, error.to_string())
+                                        .await
+                                    {
+                                        warn!(
+                                            provider = %provider_id,
+                                            error = %store_error,
+                                            "failed to store provider inventory refresh error during session init"
+                                        );
                                     }
                                 }
                             }
-                            Ok(_) => {}
-                            Err(error) => warn!(
-                                provider = %provider_id,
-                                error = %error,
-                                "failed to plan provider inventory refresh during session init"
-                            ),
                         }
-
-                        if let Ok(Some(refreshed_inventory)) = self
-                            .provider_inventory
-                            .entry_for_provider(provider_name)
-                            .await
-                        {
-                            inventory = refreshed_inventory;
-                        }
+                        Ok(_) => {}
+                        Err(error) => warn!(
+                            provider = %provider_id,
+                            error = %error,
+                            "failed to plan provider inventory refresh during session init"
+                        ),
                     }
-                    Err(error) => warn!(
-                        provider = %provider_name,
-                        error = %error,
-                        "failed to initialize provider during synchronous inventory refresh"
-                    ),
+
+                    if let Ok(Some(refreshed_inventory)) = self
+                        .provider_inventory
+                        .entry_for_provider(provider_name)
+                        .await
+                    {
+                        inventory = refreshed_inventory;
+                    }
                 }
+                Err(error) => warn!(
+                    provider = %provider_name,
+                    error = %error,
+                    "failed to initialize provider during synchronous inventory refresh"
+                ),
             }
         }
 
@@ -1092,7 +1087,7 @@ impl GooseAcpAgent {
 
             // ── Phase 2: load extensions (slow, may take seconds) ────────
             let phase2: Result<(), String> = async {
-                let mut extensions = get_enabled_extensions_with_config(&config);
+                let mut extensions = get_enabled_extensions_with_config(config);
                 extensions.extend(builtins.iter().map(|b| builtin_to_extension_config(b)));
 
                 let acp_developer = if (client_fs_capabilities.read_text_file
@@ -2397,7 +2392,7 @@ impl GooseAcpAgent {
             .internal_err_ctx("Failed to get provider")?;
         let provider_name = current_provider.get_name().to_string();
         let extensions =
-            EnabledExtensionsState::for_session(&self.session_manager, &internal_id, &config).await;
+            EnabledExtensionsState::for_session(&self.session_manager, &internal_id, config).await;
         let model_config = crate::model::ModelConfig::new(model_id)
             .invalid_params_err_ctx("Invalid model config")?
             .with_canonical_limits(&provider_name);
@@ -2561,7 +2556,7 @@ impl GooseAcpAgent {
             .with_request_params(request_params);
 
         let extensions =
-            EnabledExtensionsState::for_session(&self.session_manager, &internal_id, &config).await;
+            EnabledExtensionsState::for_session(&self.session_manager, &internal_id, config).await;
         let new_provider = self
             .create_provider(&resolved_provider_name, model_config, extensions)
             .await
