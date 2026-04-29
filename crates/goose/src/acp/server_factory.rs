@@ -21,7 +21,7 @@ impl AcpServer {
     }
 
     pub async fn create_agent(&self) -> Result<Arc<GooseAcpAgent>> {
-        let config = crate::config::Config::global();
+        let config = crate::config::Config::init_global(self.config.config_dir.clone());
 
         let goose_mode = config
             .get_goose_mode()

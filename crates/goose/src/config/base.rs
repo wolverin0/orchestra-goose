@@ -265,6 +265,38 @@ impl Config {
         GLOBAL_CONFIG.get_or_init(Config::default)
     }
 
+    /// Initialize the global configuration with a custom config directory.
+    ///
+    /// If the global instance has already been initialized (e.g. by a prior call
+    /// to `global()` or `init_global()`), this returns the existing instance and
+    /// the provided path is ignored. This is safe because Goose runs one ACP
+    /// server per process.
+    pub fn init_global(config_dir: PathBuf) -> &'static Config {
+        GLOBAL_CONFIG.get_or_init(|| {
+            let config_path = config_dir.join(CONFIG_YAML_NAME);
+
+            let secrets =
+                if env::var("GOOSE_DISABLE_KEYRING").is_ok()
+                    || keyring_disabled_in_config(&config_path)
+                {
+                    SecretStorage::File {
+                        path: config_dir.join("secrets.yaml"),
+                    }
+                } else {
+                    SecretStorage::Keyring {
+                        service: KEYRING_SERVICE.to_string(),
+                    }
+                };
+
+            Config {
+                config_path,
+                secrets,
+                guard: Mutex::new(()),
+                secrets_cache: Arc::new(Mutex::new(None)),
+            }
+        })
+    }
+
     /// Create a new configuration instance with custom paths
     ///
     /// This is primarily useful for testing or for applications that need
