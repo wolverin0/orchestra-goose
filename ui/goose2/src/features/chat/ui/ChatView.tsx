@@ -34,6 +34,8 @@ export function ChatView({
   const [globalArtifactRoot, setGlobalArtifactRoot] = useState<string | null>(
     null,
   );
+  const [isLoadingIndicatorMounted, setIsLoadingIndicatorMounted] =
+    useState(false);
   const controller = useChatSessionController({
     sessionId,
     onCreatePersonaRequested: onCreatePersona,
@@ -74,6 +76,16 @@ export function ChatView({
     controller.chatState === "streaming" ||
     controller.chatState === "waiting" ||
     controller.chatState === "compacting";
+  const shouldShowLoadingIndicator =
+    showIndicator && !controller.isLoadingHistory;
+  const shouldReserveComposerGap =
+    shouldShowLoadingIndicator || isLoadingIndicatorMounted;
+
+  useEffect(() => {
+    if (shouldShowLoadingIndicator) {
+      setIsLoadingIndicatorMounted(true);
+    }
+  }, [shouldShowLoadingIndicator]);
 
   return (
     <ArtifactPolicyProvider
@@ -95,8 +107,11 @@ export function ChatView({
             />
           )}
 
-          <AnimatePresence initial={false}>
-            {showIndicator && !controller.isLoadingHistory ? (
+          <AnimatePresence
+            initial={false}
+            onExitComplete={() => setIsLoadingIndicatorMounted(false)}
+          >
+            {shouldShowLoadingIndicator ? (
               <LoadingGoose
                 key="loading-indicator"
                 chatState={
@@ -111,7 +126,7 @@ export function ChatView({
           </AnimatePresence>
 
           <ChatInput
-            className={showIndicator ? "mt-0" : undefined}
+            className={shouldReserveComposerGap ? "mt-0" : undefined}
             onSend={controller.handleSend}
             disabled={
               controller.projectMetadataPending ||
