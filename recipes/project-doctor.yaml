@@ -1,0 +1,34 @@
+version: "1.0.0"
+title: Project Doctor
+description: Audit a project's orchestra-goose orchestration setup. Read-only health-check covering monitoring/active_tasks paths, graphify freshness, dead skill references, placeholder values. Goose port of the /project-doctor skill (mm-c9a0~2 era).
+
+extensions:
+  - type: builtin
+    name: developer
+
+prompt: |
+  Run a project health audit. Read-only — never mutate.
+
+  Checks (run all, even on early failures; report a table):
+
+  | check | how |
+  |---|---|
+  | monitoring.md exists | file at project root or .goose/project.toml |
+  | active_tasks.md exists | vault/active_tasks.md or active_tasks.md at root |
+  | active_tasks.md parses | first task has valid YAML block + status field |
+  | active_tasks pointer is current | first in_progress task's `dispatched_at` is within 30 days; no completed-task pointer leaks |
+  | graphify-out fresh | graphify-out/GRAPH_REPORT.md exists AND mtime within 30 days |
+  | .gitnexus/ exists | indicates GitNexus indexed |
+  | AGENTS.md exists | shared agent guidance present |
+  | CLAUDE.md exists | Claude-specific project rules present |
+  | git worktree status | report uncommitted file count (info-only) |
+  | telegram_chat_id is real | not equal to "CHANGEME_CHAT_ID" placeholder |
+
+  For each row report PASS / WARN / FAIL / SKIP + one-line detail. Then offer remediation hints (which recipe / skill to run next) for any FAIL.
+
+  Severity:
+  - FAIL = orchestration broken (no monitoring.md / no active_tasks.md / corrupted YAML)
+  - WARN = degraded (stale graphify, missing AGENTS.md, placeholder values)
+  - SKIP = capability not in use (no .gitnexus → fine if project hasn't enabled it)
+
+  Output one structured table + a 1-sentence summary. No exploration beyond what's listed.

@@ -1,0 +1,36 @@
+version: "1.0.0"
+title: Session Handoff
+description: Generate a structured handoff file at the end of a session for clean context transfer to next session. Goose port of the /handoff skill.
+
+parameters:
+  - key: session_summary
+    input_type: string
+    requirement: required
+    description: One paragraph summary of what was done this session.
+
+extensions:
+  - type: builtin
+    name: developer
+  - type: stdio
+    name: memorymaster
+    cmd: python
+    args: ["-m", "memorymaster.mcp_server"]
+    envs:
+      MEMORYMASTER_DEFAULT_DB: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster\\memorymaster.db"
+      MEMORYMASTER_WORKSPACE: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster"
+
+prompt: |
+  Generate a session handoff. Three actions:
+
+  1. Write `handoff.md` at the project root with sections:
+     - "## What was done this session" — based on user-provided summary: {{ session_summary }}
+     - "## Current state" — read git log -5, list active modified files (git status), read first task in vault/active_tasks.md
+     - "## What the next session should pick up" — extract from active_tasks.md (first in_progress or pending task)
+     - "## Linked memory claims" — list any new MM claims ingested this session (call mcp__memorymaster__list_claims with limit=5, filter by source_agent containing claude or goose)
+     - "## Resume protocol" — one paragraph telling next session: read this file + run lookahead-brief recipe + start with first pending task
+
+  2. Ingest a single SUMMARY claim via mcp__memorymaster__ingest_claim (claim_type=event, source_agent=claude-session) capturing the session summary in 1-2 sentences. Skip if a similar claim was already ingested in the last hour.
+
+  3. Print the handoff.md path and the ingested claim's human_id (if any) so the user can confirm.
+
+  Output only: 3-line confirmation. handoff.md is the artifact; this prompt's output is just the receipt.
