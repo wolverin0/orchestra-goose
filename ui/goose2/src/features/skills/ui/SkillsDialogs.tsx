@@ -10,20 +10,14 @@ import {
   AlertDialogTitle,
 } from "@/shared/ui/alert-dialog";
 import { buttonVariants } from "@/shared/ui/button";
-import { CreateSkillDialog } from "./CreateSkillDialog";
-import type { SkillInfo } from "../api/skills";
+import { SkillEditor } from "./SkillEditor";
+import type { EditingSkill, SkillInfo } from "../api/skills";
 
 interface SkillsDialogsProps {
   dialogOpen: boolean;
   onDialogClose: () => void;
   onCreated: () => void | Promise<void>;
-  editingSkill?: {
-    name: string;
-    description: string;
-    instructions: string;
-    path: string;
-    fileLocation: string;
-  };
+  editingSkill?: EditingSkill;
   deletingSkill: SkillInfo | null;
   onDeletingSkillChange: (skill: SkillInfo | null) => void;
   onConfirmDelete: () => void | Promise<void>;
@@ -42,7 +36,7 @@ export function SkillsDialogs({
 
   return (
     <>
-      <CreateSkillDialog
+      <SkillEditor
         isOpen={dialogOpen}
         onClose={onDialogClose}
         onCreated={onCreated}

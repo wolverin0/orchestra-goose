@@ -23,12 +23,15 @@ export interface SkillInfo {
   instructions: string;
   path: string;
   fileLocation: string;
-  directoryPath: string;
   sourceKind: SkillSourceKind;
   sourceLabel: string;
   projectLinks: SkillProjectLink[];
-  editable: boolean;
 }
+
+export type EditingSkill = Pick<
+  SkillInfo,
+  "name" | "description" | "instructions" | "path" | "fileLocation"
+>;
 
 type SkillSourceEntry = SourceEntry & { type: typeof SKILL_SOURCE_TYPE };
 
@@ -60,12 +63,10 @@ function toSkillInfo(source: SkillSourceEntry): SkillInfo {
     instructions: source.content,
     path: source.directory,
     fileLocation: getSkillFileLocation(source.directory),
-    directoryPath: source.directory,
     sourceKind,
     sourceLabel:
       sourceKind === "global" ? "Personal" : projectName || "Project",
     projectLinks,
-    editable: true,
   };
 }
 

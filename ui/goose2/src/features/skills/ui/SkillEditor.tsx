@@ -11,29 +11,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { createSkill, updateSkill } from "../api/skills";
+import { createSkill, updateSkill, type EditingSkill } from "../api/skills";
 import { formatSkillName, isValidSkillName } from "../lib/skillsHelpers";
 import { getRenamedSkillFileLocation } from "../lib/skillsPath";
 
-interface CreateSkillDialogProps {
+interface SkillEditorProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated?: () => void;
-  editingSkill?: {
-    name: string;
-    description: string;
-    instructions: string;
-    path: string;
-    fileLocation: string;
-  };
+  editingSkill?: EditingSkill;
 }
 
-export function CreateSkillDialog({
+export function SkillEditor({
   isOpen,
   onClose,
   onCreated,
   editingSkill,
-}: CreateSkillDialogProps) {
+}: SkillEditorProps) {
   const { t } = useTranslation(["skills", "common"]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");

@@ -24,6 +24,7 @@ import {
   exportSkill,
   importSkills,
   listSkills,
+  type EditingSkill,
   type SkillInfo,
 } from "../api/skills";
 import {
@@ -46,16 +47,9 @@ export function SkillsView({ onStartChatWithSkill }: SkillsViewProps) {
     [],
   );
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingSkill, setEditingSkill] = useState<
-    | {
-        name: string;
-        description: string;
-        instructions: string;
-        path: string;
-        fileLocation: string;
-      }
-    | undefined
-  >(undefined);
+  const [editingSkill, setEditingSkill] = useState<EditingSkill | undefined>(
+    undefined,
+  );
   const [skills, setSkills] = useState<SkillViewInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingSkill, setDeletingSkill] = useState<SkillInfo | null>(null);
