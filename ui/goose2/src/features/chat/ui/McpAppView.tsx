@@ -35,7 +35,13 @@ interface McpAppViewProps {
 
 const DEFAULT_APP_HEIGHT = 240;
 // Goose2 currently only implements inline display mode.
-const AVAILABLE_DISPLAY_MODES = ["inline"] as const;
+type HostContextDisplayMode = NonNullable<
+  McpUiHostContext["availableDisplayModes"]
+>[number];
+type AvailableDisplayMode = Extract<HostContextDisplayMode, "inline">;
+const AVAILABLE_DISPLAY_MODES = [
+  "inline",
+] satisfies readonly AvailableDisplayMode[];
 const GOOSE2_USER_AGENT = `${packageJson.name}/${packageJson.version}`;
 const DESKTOP_SAFE_AREA_INSETS = {
   top: 0,
