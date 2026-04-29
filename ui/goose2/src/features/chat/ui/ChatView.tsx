@@ -111,6 +111,7 @@ export function ChatView({
           </AnimatePresence>
 
           <ChatInput
+            className={showIndicator ? "mt-0" : undefined}
             onSend={controller.handleSend}
             disabled={
               controller.projectMetadataPending ||

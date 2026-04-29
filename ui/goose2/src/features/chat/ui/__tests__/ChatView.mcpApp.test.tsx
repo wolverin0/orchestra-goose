@@ -5,6 +5,7 @@ import { ChatView } from "../ChatView";
 
 const mocks = vi.hoisted(() => ({
   messageTimelineSpy: vi.fn(),
+  chatInputSpy: vi.fn(),
   handleSend: vi.fn(() => true),
   useChatSessionController: vi.fn(),
 }));
@@ -25,7 +26,10 @@ vi.mock("../MessageTimeline", () => ({
 }));
 
 vi.mock("../ChatInput", () => ({
-  ChatInput: () => <div data-testid="chat-input" />,
+  ChatInput: (props: unknown) => {
+    mocks.chatInputSpy(props);
+    return <div data-testid="chat-input" />;
+  },
 }));
 
 vi.mock("../LoadingGoose", () => ({
@@ -67,6 +71,7 @@ vi.mock("@/shared/lib/perfLog", () => ({
 describe("ChatView MCP app messaging", () => {
   beforeEach(() => {
     mocks.messageTimelineSpy.mockClear();
+    mocks.chatInputSpy.mockClear();
     mocks.handleSend.mockClear();
     mocks.useChatSessionController.mockReturnValue({
       messages: [],
@@ -118,5 +123,20 @@ describe("ChatView MCP app messaging", () => {
     };
 
     expect(timelineProps.onSendMcpAppMessage).toBe(mocks.handleSend);
+  });
+
+  it("does not overlap the composer over the loading indicator", () => {
+    mocks.useChatSessionController.mockReturnValue({
+      ...mocks.useChatSessionController(),
+      chatState: "thinking",
+    });
+
+    render(<ChatView sessionId="session-1" />);
+
+    expect(mocks.chatInputSpy).toHaveBeenCalled();
+    const chatInputProps = mocks.chatInputSpy.mock.calls.at(-1)?.[0] as {
+      className?: string;
+    };
+    expect(chatInputProps.className).toBe("mt-0");
   });
 });
