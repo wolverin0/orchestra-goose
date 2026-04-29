@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export interface GooseServeHostInfo {
+  // Rename to baseUrl when goose serve supports a secure local origin.
   httpBaseUrl: string;
   secretKey: string;
 }
