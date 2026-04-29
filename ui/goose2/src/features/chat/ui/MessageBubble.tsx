@@ -258,19 +258,7 @@ function renderContentBlock(
         />
       );
     }
-    case "thinking": {
-      const th = content as ThinkingContent;
-      return (
-        <Reasoning
-          key={`thinking-${index}`}
-          isStreaming={isStreamingMsg}
-          defaultOpen={false}
-        >
-          <ReasoningTrigger />
-          <ReasoningContent>{th.text}</ReasoningContent>
-        </Reasoning>
-      );
-    }
+    case "thinking":
     case "reasoning": {
       const text = (content as ThinkingContent | ReasoningContentType).text;
       return (
