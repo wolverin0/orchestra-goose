@@ -20,18 +20,32 @@ extensions:
     envs:
       MEMORYMASTER_DEFAULT_DB: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster\\memorymaster.db"
       MEMORYMASTER_WORKSPACE: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster"
+  - type: stdio
+    name: gitnexus
+    cmd: npx
+    args:
+      - "-y"
+      - "gitnexus"
+      - "mcp"
+    timeout: 60
 
 prompt: |
-  Look-ahead protocol — execute these steps in order, briefly:
+  Look-ahead protocol — execute these steps in order, briefly. Be concise; this is pre-flight context, not the main work.
 
-  1. Read `vault/active_tasks.md` (or `active_tasks.md` at project root). Extract the FIRST task whose YAML block has `status: in_progress` (fall back to first `status: pending` if no in_progress). The task title is the markdown header text; the narrative is the body below the YAML block.
+  1. Read `vault/active_tasks.md` (or `active_tasks.md` at project root). Extract the FIRST task whose YAML block has `status: in_progress` (fall back to first `status: pending`). The task title is the `## Task: ...` header; the narrative is the body below the YAML block.
 
-  2. Call the `mcp__memorymaster__query_for_task` tool with:
+  2. **MEMORY layer** — call `mcp__memorymaster__query_for_task` with:
        - task_description = "<title>. <first 200 chars of narrative>"
-       - project_scope = "" (empty — let MM auto-derive from workspace)
-     Return the `briefing` field VERBATIM (it's already an XML envelope).
+       - project_scope = ""  (let MM auto-derive from workspace)
+     Capture the `briefing` field (XML envelope).
 
-  3. Now handle the user's actual task using that briefing as context:
+  3. **CODE-INTEL layer (optional, best-effort)** — if `.gitnexus/` exists at project root, call `mcp__gitnexus__query` (or equivalent) with the task title to fetch the most-relevant call-graph context. Skip silently if GN is not indexed for this project.
+
+  4. **GRAPH layer (optional, best-effort)** — if `graphify-out/GRAPH_REPORT.md` exists, read it and extract the 1-2 community sections most relevant to the task title (keyword match in section headers). Skip silently if missing.
+
+  5. Compose the final `[Look-ahead briefing]` block: paste the MM XML envelope verbatim, then append a `<code_intel>` section with GN highlights (if any), then a `<graph_communities>` section with graphify excerpts (if any).
+
+  6. Now handle the user's actual task using that briefing as context:
        {{ user_task }}
 
-  Output format: print the `[Look-ahead briefing]` block first (the verbatim briefing from step 2), then your work on the user's task.
+  Output format: print the complete `[Look-ahead briefing]` block first, then a single blank line, then your work on the user's task.
