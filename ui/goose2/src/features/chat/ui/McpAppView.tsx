@@ -410,11 +410,14 @@ export function McpAppView({
     renderableDocument !== null && sandbox !== null && renderError === null;
   const shouldShowFallback =
     renderError !== null || renderableDocument === null;
+  const rootClassName = renderableDocument?.prefersBorder
+    ? "my-3 w-full md:-mx-4 md:w-[calc(100%+2rem)]"
+    : "my-3 w-full";
   const appChromeClassName = renderableDocument?.prefersBorder
-    ? "w-full overflow-hidden rounded-xl border border-border-primary bg-background/40 shadow-sm"
+    ? "w-full overflow-hidden rounded-2xl border border-border-primary bg-background/40 shadow-sm"
     : "w-full bg-transparent";
   const loadingClassName = renderableDocument?.prefersBorder
-    ? "rounded-xl border border-dashed border-border px-4 py-3 text-muted-foreground text-sm"
+    ? "rounded-2xl border border-dashed border-border px-4 py-3 text-muted-foreground text-sm"
     : "py-1 text-muted-foreground text-sm";
 
   useEffect(() => {
@@ -439,7 +442,7 @@ export function McpAppView({
   }, [requestAutoScroll, shouldRenderApp]);
 
   return (
-    <div ref={rootRef} className="my-3 w-full" data-testid="mcp-app-view">
+    <div ref={rootRef} className={rootClassName} data-testid="mcp-app-view">
       {shouldRenderApp ? (
         <div className={appChromeClassName} style={{ height: inlineHeight }}>
           <AppRenderer

@@ -217,10 +217,13 @@ describe("McpAppView nested tool calls", () => {
       expect(screen.getByTestId("mock-app-renderer")).toBeInTheDocument();
     });
 
-    const borderedChrome = screen.getByTestId("mcp-app-view")
-      .firstElementChild as HTMLElement | null;
+    const borderedRoot = screen.getByTestId("mcp-app-view");
+    expect(borderedRoot.className).toContain("md:-mx-4");
+    expect(borderedRoot.className).toContain("md:w-[calc(100%+2rem)]");
+
+    const borderedChrome = borderedRoot.firstElementChild as HTMLElement | null;
     expect(borderedChrome).not.toBeNull();
-    expect(borderedChrome?.className).toContain("rounded-xl");
+    expect(borderedChrome?.className).toContain("rounded-2xl");
     expect(borderedChrome?.className).toContain("border");
 
     rerender(
@@ -234,10 +237,14 @@ describe("McpAppView nested tool calls", () => {
       expect(screen.getByTestId("mock-app-renderer")).toBeInTheDocument();
     });
 
-    const borderlessChrome = screen.getByTestId("mcp-app-view")
-      .firstElementChild as HTMLElement | null;
+    const borderlessRoot = screen.getByTestId("mcp-app-view");
+    expect(borderlessRoot.className).not.toContain("md:-mx-4");
+    expect(borderlessRoot.className).not.toContain("md:w-[calc(100%+2rem)]");
+
+    const borderlessChrome =
+      borderlessRoot.firstElementChild as HTMLElement | null;
     expect(borderlessChrome).not.toBeNull();
-    expect(borderlessChrome?.className).not.toContain("rounded-xl");
+    expect(borderlessChrome?.className).not.toContain("rounded-2xl");
     expect(borderlessChrome?.className).not.toContain("border");
     expect(borderlessChrome?.className).not.toContain("shadow-sm");
     expect(borderlessChrome?.className).not.toContain("overflow-hidden");
