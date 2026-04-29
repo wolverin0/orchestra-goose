@@ -34,7 +34,7 @@ interface McpAppViewProps {
 }
 
 const DEFAULT_APP_HEIGHT = 240;
-// Fullscreen and PiP display modes will be added as the host grows support for them.
+// Goose2 currently only implements inline display mode.
 const AVAILABLE_DISPLAY_MODES = ["inline"] as const;
 const GOOSE2_USER_AGENT = `${packageJson.name}/${packageJson.version}`;
 const DESKTOP_SAFE_AREA_INSETS = {
