@@ -294,6 +294,9 @@ describe("McpAppView nested tool calls", () => {
       expect(iframe.style.getPropertyValue("color-scheme")).toBe("light");
       expect(iframe.style.backgroundColor).toBe("transparent");
     });
+    expect(
+      getLatestAppRendererProps().sandbox?.url.searchParams.get("color_scheme"),
+    ).toBe("light");
     expect(getLatestAppRendererProps().hostContext?.theme).toBe("light");
   });
 

@@ -58,6 +58,7 @@ type ReadResourceResult = Awaited<
 >;
 type HostContextToolInfo = NonNullable<McpUiHostContext["toolInfo"]>;
 type HostContextTool = HostContextToolInfo["tool"];
+type HostColorScheme = NonNullable<McpUiHostContext["theme"]>;
 
 function appendDomains(
   params: URLSearchParams,
@@ -73,8 +74,12 @@ function buildProxyUrl(
   httpBaseUrl: string,
   secretKey: string,
   csp: McpAppResourceCsp | null,
+  colorScheme: HostColorScheme,
 ): URL {
-  const params = new URLSearchParams({ secret: secretKey });
+  const params = new URLSearchParams({
+    secret: secretKey,
+    color_scheme: colorScheme,
+  });
   appendDomains(params, "connect_domains", csp?.connectDomains);
   appendDomains(params, "resource_domains", csp?.resourceDomains);
   appendDomains(params, "frame_domains", csp?.frameDomains);
@@ -288,9 +293,10 @@ export function McpAppView({
         hostInfo.httpBaseUrl,
         hostInfo.secretKey,
         renderableDocument.csp,
+        resolvedTheme,
       ),
     };
-  }, [hostInfo, renderableDocument]);
+  }, [hostInfo, renderableDocument, resolvedTheme]);
 
   const hostContext = useMemo<McpUiHostContext>(
     () => ({

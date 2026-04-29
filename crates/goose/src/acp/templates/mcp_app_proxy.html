@@ -31,10 +31,19 @@
 
         function getProxyParams() {
           var params = new URLSearchParams(window.location.search);
+          var colorScheme = params.get('color_scheme');
           return {
             secret: params.get('secret') || '',
-            baseUrl: window.location.origin
+            baseUrl: window.location.origin,
+            colorScheme: colorScheme === 'light' || colorScheme === 'dark' ? colorScheme : null
           };
+        }
+
+        function applyProxyColorScheme() {
+          var proxyParams = getProxyParams();
+          var colorScheme = proxyParams.colorScheme || 'light dark';
+          document.documentElement.style.colorScheme = colorScheme;
+          document.body.style.colorScheme = colorScheme;
         }
 
         async function storeGuestHtml(html) {
@@ -73,11 +82,12 @@
             guestIframe.setAttribute('allow', allowList.join('; '));
           }
 
-          guestIframe.style.cssText = 'width:100%; height:100%; border:none;';
+          var proxyParams = getProxyParams();
+          var colorScheme = proxyParams.colorScheme || 'light dark';
+          guestIframe.style.cssText = 'width:100%; height:100%; border:none; background-color:transparent; color-scheme:' + colorScheme + ';';
 
           try {
             var nonce = await storeGuestHtml(html);
-            var proxyParams = getProxyParams();
             guestIframe.src = proxyParams.baseUrl + '/mcp-app-guest?secret=' + encodeURIComponent(proxyParams.secret) + '&nonce=' + encodeURIComponent(nonce);
           } catch (e) {
             console.warn('Failed to use /mcp-app-guest endpoint, falling back to srcdoc:', e);
@@ -130,6 +140,7 @@
         }
 
         window.addEventListener('message', handleMessage);
+        applyProxyColorScheme();
         window.parent.postMessage({
           jsonrpc: '2.0',
           method: 'ui/notifications/sandbox-proxy-ready',
