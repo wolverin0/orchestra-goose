@@ -46,6 +46,51 @@
           document.body.style.colorScheme = colorScheme;
         }
 
+        function createColorSchemePrelude(colorScheme) {
+          var hostColorScheme = colorScheme === 'dark' ? 'dark' : 'light';
+          var matchMediaScript = [
+            '<scr' + 'ipt>',
+            '(function(){',
+            'var hostColorScheme=' + JSON.stringify(hostColorScheme) + ';',
+            'var nativeMatchMedia=window.matchMedia&&window.matchMedia.bind(window);',
+            'if(!nativeMatchMedia){return;}',
+            'window.matchMedia=function(query){',
+            'var normalized=String(query).replace(/\\s+/g," ").trim().toLowerCase();',
+            'var isDark=normalized==="(prefers-color-scheme: dark)";',
+            'var isLight=normalized==="(prefers-color-scheme: light)";',
+            'if(!isDark&&!isLight){return nativeMatchMedia(query);}',
+            'return {matches:isDark?hostColorScheme==="dark":hostColorScheme==="light",media:String(query),onchange:null,addListener:function(){},removeListener:function(){},addEventListener:function(){},removeEventListener:function(){},dispatchEvent:function(){return false;}};',
+            '};',
+            '})();',
+            '</scr' + 'ipt>'
+          ].join('');
+
+          return '<meta name="color-scheme" content="' + hostColorScheme + '"><style id="mcp-app-host-color-scheme">:root{color-scheme:' + hostColorScheme + ';}html,body{background-color:transparent;}</style>' + matchMediaScript;
+        }
+
+        function injectGuestColorScheme(html, colorScheme) {
+          if (!colorScheme) {
+            return html;
+          }
+
+          var prelude = createColorSchemePrelude(colorScheme);
+          var cleanedHtml = html.replace(/<meta\s+[^>]*name\s*=\s*["']color-scheme["'][^>]*>/gi, '');
+
+          if (/<head\b[^>]*>/i.test(cleanedHtml)) {
+            return cleanedHtml.replace(/<head\b[^>]*>/i, function (match) {
+              return match + prelude;
+            });
+          }
+
+          if (/<html\b[^>]*>/i.test(cleanedHtml)) {
+            return cleanedHtml.replace(/<html\b[^>]*>/i, function (match) {
+              return match + '<head>' + prelude + '</head>';
+            });
+          }
+
+          return prelude + cleanedHtml;
+        }
+
         async function storeGuestHtml(html) {
           var proxyParams = getProxyParams();
           var response = await fetch(proxyParams.baseUrl + '/mcp-app-guest', {
@@ -85,13 +130,14 @@
           var proxyParams = getProxyParams();
           var colorScheme = proxyParams.colorScheme || 'light dark';
           guestIframe.style.cssText = 'width:100%; height:100%; border:none; background-color:transparent; color-scheme:' + colorScheme + ';';
+          var guestHtml = injectGuestColorScheme(html, proxyParams.colorScheme);
 
           try {
-            var nonce = await storeGuestHtml(html);
+            var nonce = await storeGuestHtml(guestHtml);
             guestIframe.src = proxyParams.baseUrl + '/mcp-app-guest?secret=' + encodeURIComponent(proxyParams.secret) + '&nonce=' + encodeURIComponent(nonce);
           } catch (e) {
             console.warn('Failed to use /mcp-app-guest endpoint, falling back to srcdoc:', e);
-            guestIframe.srcdoc = html;
+            guestIframe.srcdoc = guestHtml;
           }
 
           document.body.appendChild(guestIframe);
