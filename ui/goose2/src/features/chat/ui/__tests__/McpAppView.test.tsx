@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   nestedToolResultSpy: vi.fn(),
   extMethod: vi.fn(),
   getClient: vi.fn(),
+  resolvedTheme: "dark" as "light" | "dark",
 }));
 
 vi.mock("@mcp-ui/client", () => ({
@@ -20,25 +21,28 @@ vi.mock("@mcp-ui/client", () => ({
     mocks.appRendererSpy(props);
 
     return (
-      <button
-        data-testid="mock-app-renderer"
-        onClick={() => {
-          void props
-            .onCallTool?.(
-              {
-                name: "get-server-time",
-                arguments: { timezone: "America/New_York" },
-              },
-              {} as RequestHandlerExtra,
-            )
-            .then((result) => {
-              mocks.nestedToolResultSpy(result);
-            });
-        }}
-        type="button"
-      >
-        call nested tool
-      </button>
+      <div>
+        <iframe data-testid="mock-app-iframe" title="Mock MCP app" />
+        <button
+          data-testid="mock-app-renderer"
+          onClick={() => {
+            void props
+              .onCallTool?.(
+                {
+                  name: "get-server-time",
+                  arguments: { timezone: "America/New_York" },
+                },
+                {} as RequestHandlerExtra,
+              )
+              .then((result) => {
+                mocks.nestedToolResultSpy(result);
+              });
+          }}
+          type="button"
+        >
+          call nested tool
+        </button>
+      </div>
     );
   },
 }));
@@ -55,7 +59,7 @@ vi.mock("@/shared/api/gooseServeHost", () => ({
 }));
 
 vi.mock("@/shared/theme/ThemeProvider", () => ({
-  useTheme: () => ({ resolvedTheme: "dark" }),
+  useTheme: () => ({ resolvedTheme: mocks.resolvedTheme }),
 }));
 
 function createPayload({
@@ -131,6 +135,7 @@ describe("McpAppView nested tool calls", () => {
     mocks.nestedToolResultSpy.mockClear();
     mocks.extMethod.mockReset();
     mocks.getClient.mockReset();
+    mocks.resolvedTheme = "dark";
     mocks.getClient.mockResolvedValue({
       extMethod: mocks.extMethod,
     });
@@ -263,6 +268,33 @@ describe("McpAppView nested tool calls", () => {
     });
 
     expect(getLatestAppRendererProps().onFallbackRequest).toBeUndefined();
+  });
+
+  it("keeps the iframe color scheme aligned with the host theme", async () => {
+    mocks.resolvedTheme = "light";
+
+    render(
+      <McpAppView
+        payload={createPayload()}
+        toolResponse={createToolResponse()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("mock-app-renderer")).toBeInTheDocument();
+    });
+
+    const appChrome = screen.getByTestId("mcp-app-view")
+      .firstElementChild as HTMLElement | null;
+    expect(appChrome).not.toBeNull();
+    expect(appChrome?.style.colorScheme).toBe("light");
+
+    const iframe = screen.getByTestId("mock-app-iframe") as HTMLIFrameElement;
+    await waitFor(() => {
+      expect(iframe.style.getPropertyValue("color-scheme")).toBe("light");
+      expect(iframe.style.backgroundColor).toBe("transparent");
+    });
+    expect(getLatestAppRendererProps().hostContext?.theme).toBe("light");
   });
 
   it("declares readily available host context fields", async () => {

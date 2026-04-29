@@ -20,6 +20,7 @@ import {
   extractRenderableMcpAppDocument,
   type McpAppResourceCsp,
 } from "./mcpAppPayload";
+import { useIframeColorScheme } from "./useIframeColorScheme";
 
 interface McpAppViewProps {
   payload: McpAppPayload;
@@ -153,6 +154,7 @@ export function McpAppView({
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
   const autoScrollTimersRef = useRef<number[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
+  useIframeColorScheme(rootRef, resolvedTheme);
 
   const renderableDocument = useMemo(
     () => extractRenderableMcpAppDocument(payload),
@@ -416,6 +418,10 @@ export function McpAppView({
   const appChromeClassName = renderableDocument?.prefersBorder
     ? "w-full overflow-hidden rounded-2xl border border-border-primary bg-background/40 shadow-sm"
     : "w-full bg-transparent";
+  const appChromeStyle = {
+    height: inlineHeight,
+    colorScheme: resolvedTheme,
+  } as const;
   const loadingClassName = renderableDocument?.prefersBorder
     ? "rounded-2xl border border-dashed border-border px-4 py-3 text-muted-foreground text-sm"
     : "py-1 text-muted-foreground text-sm";
@@ -444,7 +450,7 @@ export function McpAppView({
   return (
     <div ref={rootRef} className={rootClassName} data-testid="mcp-app-view">
       {shouldRenderApp ? (
-        <div className={appChromeClassName} style={{ height: inlineHeight }}>
+        <div className={appChromeClassName} style={appChromeStyle}>
           <AppRenderer
             toolName={payload.tool.name}
             toolResourceUri={renderableDocument.resourceUri}
