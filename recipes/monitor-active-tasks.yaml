@@ -2,12 +2,6 @@ version: "1.0.0"
 title: Monitor Active Tasks
 description: Scheduled scan of active_tasks.md across orchestrated projects. Detects stuck/permission/completion states, escalates via Telegram. Replaces the omniclaude pane polling pattern.
 
-parameters:
-  - key: stuck_threshold_minutes
-    input_type: number
-    requirement: optional
-    description: Minutes of no progress before flagging a task as stuck. Default 10.
-
 extensions:
   - type: builtin
     name: developer
@@ -27,7 +21,7 @@ prompt: |
        - else default to ["G:/_OneDrive/OneDrive/Desktop/Py Apps/wezbridge"]
 
   2. For each project, read its `vault/active_tasks.md`. For each task with `status: in_progress`:
-       - check `dispatched_at` timestamp; if > {{ stuck_threshold_minutes | default 10 }} minutes ago AND no recent commit on the project branch → flag as STUCK.
+       - check `dispatched_at` timestamp; if > 10 minutes ago AND no recent commit on the project branch → flag as STUCK.
        - check `corr` correlation id appearing in any recent commit message → if yes, flag as LIKELY_COMPLETE (suggest user mark status: completed).
 
   3. For each STUCK or LIKELY_COMPLETE finding, ingest a short MemoryMaster claim via `mcp__memorymaster__ingest_claim` (claim_type=event, source_agent=orchestra-goose-monitor) so the user sees it in next session's recall.
