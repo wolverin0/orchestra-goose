@@ -11,9 +11,13 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\install-goosed-service.ps1 -Uninstall
 #
 # After install, the service will:
-#   - Run goose serve (the goosed daemon) on 127.0.0.1:3000
+#   - Run goose serve (the goosed daemon) on 127.0.0.1:3284 (goose default)
 #   - Auto-restart on crash
 #   - Log to %APPDATA%\Block\goose\data\logs\service\
+#
+# Validated 2026-04-29: service installs cleanly, auto-starts on boot,
+# listens on 127.0.0.1:3284 for ACP-over-HTTP/WS. GET / returns 404
+# (normal — ACP protocol is POST/WS, not GET).
 
 param(
     [switch]$Uninstall
@@ -65,7 +69,7 @@ Write-Host "Installing goosed as Windows service..." -ForegroundColor Cyan
 # Configure service
 & nssm set $SERVICE_NAME AppDirectory "$env:USERPROFILE\.local\bin"
 & nssm set $SERVICE_NAME DisplayName "orchestra-goose daemon"
-& nssm set $SERVICE_NAME Description "goose serve — REST + WebSocket agent server (Wave 4 of orchestra-goose migration)"
+& nssm set $SERVICE_NAME Description "goose serve - REST + WebSocket agent server (Wave 4 of orchestra-goose migration)"
 & nssm set $SERVICE_NAME Start SERVICE_AUTO_START
 & nssm set $SERVICE_NAME AppStdout "$LOG_DIR\stdout.log"
 & nssm set $SERVICE_NAME AppStderr "$LOG_DIR\stderr.log"
@@ -80,7 +84,7 @@ Start-Sleep -Seconds 2
 
 Write-Host ""
 Write-Host "Service installed. Verify with:" -ForegroundColor Green
-Write-Host "  curl http://127.0.0.1:3000/health  # if goose serve exposes a health endpoint"
+Write-Host "  curl http://127.0.0.1:3284/  # ACP daemon (goose serve default port)"
 Write-Host "  nssm status $SERVICE_NAME"
 Write-Host "  Get-Content '$LOG_DIR\stdout.log' -Tail 20"
 Write-Host ""
