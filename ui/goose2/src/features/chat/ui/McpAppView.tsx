@@ -34,7 +34,8 @@ interface McpAppViewProps {
 }
 
 const DEFAULT_APP_HEIGHT = 240;
-const INLINE_DISPLAY_MODES = ["inline"] as const;
+// Fullscreen and PiP display modes will be added as the host grows support for them.
+const AVAILABLE_DISPLAY_MODES = ["inline"] as const;
 const GOOSE2_USER_AGENT = `${packageJson.name}/${packageJson.version}`;
 const DESKTOP_SAFE_AREA_INSETS = {
   top: 0,
@@ -264,7 +265,7 @@ export function McpAppView({
     () => ({
       theme: resolvedTheme,
       displayMode: "inline",
-      availableDisplayModes: [...INLINE_DISPLAY_MODES],
+      availableDisplayModes: [...AVAILABLE_DISPLAY_MODES],
       containerDimensions:
         containerWidth !== null
           ? {
