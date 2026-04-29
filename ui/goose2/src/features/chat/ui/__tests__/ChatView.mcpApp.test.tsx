@@ -123,6 +123,10 @@ describe("ChatView MCP app messaging", () => {
     };
 
     expect(timelineProps.onSendMcpAppMessage).toBe(mocks.handleSend);
+    const chatInputProps = mocks.chatInputSpy.mock.calls.at(-1)?.[0] as {
+      className?: string;
+    };
+    expect(chatInputProps.className).toBe("-mt-4");
   });
 
   it("does not overlap the composer over the loading indicator", () => {
@@ -137,6 +141,6 @@ describe("ChatView MCP app messaging", () => {
     const chatInputProps = mocks.chatInputSpy.mock.calls.at(-1)?.[0] as {
       className?: string;
     };
-    expect(chatInputProps.className).toBe("mt-0");
+    expect(chatInputProps.className).toBeUndefined();
   });
 });

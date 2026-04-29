@@ -363,7 +363,7 @@ export function ChatInput({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className={cn("relative z-10 -mt-4 px-4 pb-6 pt-0", className)}>
+      <div className={cn("relative z-10 px-4 pb-6 pt-0", className)}>
         <div className="mx-auto max-w-3xl">
           <Popover open={mentionOpen}>
             {/* biome-ignore lint/a11y/noStaticElementInteractions: drop zone for file attachments */}

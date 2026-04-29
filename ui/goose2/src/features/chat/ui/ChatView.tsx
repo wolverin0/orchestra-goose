@@ -126,7 +126,7 @@ export function ChatView({
           </AnimatePresence>
 
           <ChatInput
-            className={shouldReserveComposerGap ? "mt-0" : undefined}
+            className={shouldReserveComposerGap ? undefined : "-mt-4"}
             onSend={controller.handleSend}
             disabled={
               controller.projectMetadataPending ||
