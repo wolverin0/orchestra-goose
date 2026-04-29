@@ -1,6 +1,6 @@
 version: "1.0.0"
 title: DECISION-line Watch
-description: Scheduled recipe (Tier B) — scans recently-modified files for the convention "DECISION: phase-N-complete next=T-NNN" lines, advances active_tasks.md when matched. Goose port of legacy decision-line-detector.js (PostToolUse on Write/Edit). Run via `goose schedule` every 2-5 minutes during active work.
+description: "Scheduled recipe (Tier B) — scans recently-modified files for DECISION-prefixed phase-complete lines, advances active_tasks.md when matched. Goose port of legacy decision-line-detector.js. Run via goose schedule every 2-5 minutes during active work."
 
 extensions:
   - type: builtin
