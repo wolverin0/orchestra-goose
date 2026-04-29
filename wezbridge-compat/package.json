@@ -1,0 +1,18 @@
+{
+  "name": "wezbridge-compat",
+  "version": "0.1.0",
+  "description": "MCP server that exposes the legacy wezbridge tool surface (spawn_session, send_prompt, send_key, read_output, discover_sessions, wait_for_idle) and routes calls to Goose's built-in orchestrator extension. Lets old code keep calling wezbridge MCP unchanged during the orchestra-goose migration (Wave 5).",
+  "main": "index.cjs",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.cjs",
+    "test": "node test.cjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "Apache-2.0"
+}
