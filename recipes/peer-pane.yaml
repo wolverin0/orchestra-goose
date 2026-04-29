@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: Peer Pane (subagent)
+description: Spawn a goose subagent equivalent to wezbridge's spawn_session — fresh context, given task, optionally scoped to a project + persona. Wave 5 replacement primitive for cross-pane orchestration. Uses goose's built-in `summon` extension.
+
+parameters:
+  - key: task
+    input_type: string
+    requirement: required
+    description: The task the peer pane should execute (e.g. "Run the audit on package X").
+  - key: project_root
+    input_type: string
+    requirement: required
+    description: Absolute path to the project the peer should work in (becomes its cwd).
+  - key: persona
+    input_type: string
+    requirement: optional
+    default: "general"
+    description: Persona file under ~/.orchestra-goose/personas/ to load (e.g. "reviewer", "architect"). Default "general".
+
+extensions:
+  - type: builtin
+    name: developer
+  - type: builtin
+    name: summon
+
+prompt: |
+  Spawn a peer subagent to handle this task autonomously.
+
+  Steps:
+  1. Verify project_root exists. If not, abort.
+  2. Optionally load persona instructions from `~/.orchestra-goose/personas/{{ persona }}.md`. If file doesn't exist, use a generic "you are a focused engineer working on the task below" preface.
+  3. Build the subagent prompt as: `[persona instructions if any]\n\n## Task\n{{ task }}\n\n## Working directory\n{{ project_root }}`.
+  4. Use the `summon` extension's tool to spawn a subagent with that prompt, max_turns=20, allowed_tools to include developer + memorymaster + read-only filesystem (no Bash unless persona says otherwise).
+  5. Capture the subagent's final output. Print: subagent_id, elapsed_seconds, summary first 500 chars.
+
+  This recipe is the goose-native equivalent of wezbridge's `spawn_session({cwd, persona})`. Use it from orchestrator recipes (monitor-active-tasks etc.) when work needs an isolated context.
+
+  Out of scope:
+  - Persistent peer panes (subagents die at end of recipe). For long-lived peers, see Wave 5 future work — using `goose serve` + dispatched sessions instead.
+  - Cross-machine spawning. Local only.
