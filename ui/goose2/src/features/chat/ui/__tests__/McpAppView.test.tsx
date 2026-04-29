@@ -272,12 +272,11 @@ describe("McpAppView nested tool calls", () => {
 
   it("keeps the iframe color scheme aligned with the host theme", async () => {
     mocks.resolvedTheme = "light";
+    const payload = createPayload();
+    const toolResponse = createToolResponse();
 
-    render(
-      <McpAppView
-        payload={createPayload()}
-        toolResponse={createToolResponse()}
-      />,
+    const { rerender } = render(
+      <McpAppView payload={payload} toolResponse={toolResponse} />,
     );
 
     await waitFor(() => {
@@ -298,6 +297,20 @@ describe("McpAppView nested tool calls", () => {
       getLatestAppRendererProps().sandbox?.url.searchParams.get("color_scheme"),
     ).toBe("light");
     expect(getLatestAppRendererProps().hostContext?.theme).toBe("light");
+
+    const initialSandbox = getLatestAppRendererProps().sandbox;
+
+    mocks.resolvedTheme = "dark";
+    rerender(<McpAppView payload={payload} toolResponse={toolResponse} />);
+
+    await waitFor(() => {
+      expect(appChrome?.style.colorScheme).toBe("dark");
+    });
+    expect(getLatestAppRendererProps().hostContext?.theme).toBe("dark");
+    expect(getLatestAppRendererProps().sandbox).toBe(initialSandbox);
+    expect(
+      getLatestAppRendererProps().sandbox?.url.searchParams.get("color_scheme"),
+    ).toBe("light");
   });
 
   it("declares readily available host context fields", async () => {

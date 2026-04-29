@@ -47,11 +47,14 @@
           };
         }
 
-        function applyProxyColorScheme() {
+        function applyProxyColorScheme(nextColorScheme) {
           var proxyParams = getProxyParams();
-          var colorScheme = proxyParams.colorScheme || 'light dark';
+          var colorScheme = nextColorScheme || proxyParams.colorScheme || 'light dark';
           document.documentElement.style.colorScheme = colorScheme;
           document.body.style.colorScheme = colorScheme;
+          if (guestIframe) {
+            guestIframe.style.setProperty('color-scheme', colorScheme);
+          }
         }
 
         function createColorSchemePrelude(colorScheme) {
@@ -59,16 +62,13 @@
           var matchMediaScript = [
             '<scr' + 'ipt>',
             '(function(){',
-            'var hostColorScheme=' + JSON.stringify(hostColorScheme) + ';',
             'var nativeMatchMedia=window.matchMedia&&window.matchMedia.bind(window);',
-            'if(!nativeMatchMedia){return;}',
-            'window.matchMedia=function(query){',
-            'var normalized=String(query).replace(/\\s+/g," ").trim().toLowerCase();',
-            'var isDark=normalized==="(prefers-color-scheme: dark)";',
-            'var isLight=normalized==="(prefers-color-scheme: light)";',
-            'if(!isDark&&!isLight){return nativeMatchMedia(query);}',
-            'return {matches:isDark?hostColorScheme==="dark":hostColorScheme==="light",media:String(query),onchange:null,addListener:function(){},removeListener:function(){},addEventListener:function(){},removeEventListener:function(){},dispatchEvent:function(){return false;}};',
-            '};',
+            'function normalizeColorScheme(value){return value==="dark"?"dark":"light";}',
+            'function setHostColorScheme(value){window.__mcpHostColorScheme=normalizeColorScheme(value);document.documentElement.style.colorScheme=window.__mcpHostColorScheme;if(document.body){document.body.style.colorScheme=window.__mcpHostColorScheme;}var meta=document.querySelector("meta[name=\\"color-scheme\\"]");if(meta){meta.setAttribute("content",window.__mcpHostColorScheme);}}',
+            'setHostColorScheme(' + JSON.stringify(hostColorScheme) + ');',
+            'document.addEventListener("DOMContentLoaded",function(){setHostColorScheme(window.__mcpHostColorScheme);});',
+            'if(nativeMatchMedia){window.matchMedia=function(query){var normalized=String(query).replace(/\\s+/g," ").trim().toLowerCase();var isDark=normalized==="(prefers-color-scheme: dark)";var isLight=normalized==="(prefers-color-scheme: light)";if(!isDark&&!isLight){return nativeMatchMedia(query);}return {matches:isDark?window.__mcpHostColorScheme==="dark":window.__mcpHostColorScheme==="light",media:String(query),onchange:null,addListener:function(){},removeListener:function(){},addEventListener:function(){},removeEventListener:function(){},dispatchEvent:function(){return false;}};};}',
+            'window.addEventListener("message",function(event){var data=event.data;if(!data||data.method!=="ui/notifications/host-context-changed"){return;}var theme=data.params&&data.params.theme;if(theme==="light"||theme==="dark"){setHostColorScheme(theme);}});',
             '})();',
             '</scr' + 'ipt>'
           ].join('');
@@ -184,6 +184,13 @@
           }
 
           var method = data.method;
+
+          if (method === 'ui/notifications/host-context-changed') {
+            var theme = data.params && data.params.theme;
+            if (theme === 'light' || theme === 'dark') {
+              applyProxyColorScheme(theme);
+            }
+          }
 
           // Handle sandbox-specific notifications from Host
           if (method === 'ui/notifications/sandbox-resource-ready') {

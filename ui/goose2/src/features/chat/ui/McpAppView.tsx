@@ -16,11 +16,9 @@ import type {
   ToolResponseContent,
 } from "@/shared/types/messages";
 import type { McpAppMessageHandler } from "./mcpAppTypes";
-import {
-  extractRenderableMcpAppDocument,
-  type McpAppResourceCsp,
-} from "./mcpAppPayload";
+import { extractRenderableMcpAppDocument } from "./mcpAppPayload";
 import { useIframeColorScheme } from "./useIframeColorScheme";
+import { useMcpAppSandbox } from "./useMcpAppSandbox";
 
 interface McpAppViewProps {
   payload: McpAppPayload;
@@ -58,35 +56,6 @@ type ReadResourceResult = Awaited<
 >;
 type HostContextToolInfo = NonNullable<McpUiHostContext["toolInfo"]>;
 type HostContextTool = HostContextToolInfo["tool"];
-type HostColorScheme = NonNullable<McpUiHostContext["theme"]>;
-
-function appendDomains(
-  params: URLSearchParams,
-  key: string,
-  domains: string[] | undefined,
-) {
-  if (domains && domains.length > 0) {
-    params.set(key, domains.join(","));
-  }
-}
-
-function buildProxyUrl(
-  httpBaseUrl: string,
-  secretKey: string,
-  csp: McpAppResourceCsp | null,
-  colorScheme: HostColorScheme,
-): URL {
-  const params = new URLSearchParams({
-    secret: secretKey,
-    color_scheme: colorScheme,
-  });
-  appendDomains(params, "connect_domains", csp?.connectDomains);
-  appendDomains(params, "resource_domains", csp?.resourceDomains);
-  appendDomains(params, "frame_domains", csp?.frameDomains);
-  appendDomains(params, "base_uri_domains", csp?.baseUriDomains);
-  appendDomains(params, "script_domains", csp?.scriptDomains);
-  return new URL(`/mcp-app-proxy?${params.toString()}`, httpBaseUrl);
-}
 
 function buildToolResult(
   toolResponse: ToolResponseContent | undefined,
@@ -283,20 +252,11 @@ export function McpAppView({
     renderableDocument,
   ]);
 
-  const sandbox = useMemo(() => {
-    if (!hostInfo || !renderableDocument) {
-      return null;
-    }
-
-    return {
-      url: buildProxyUrl(
-        hostInfo.httpBaseUrl,
-        hostInfo.secretKey,
-        renderableDocument.csp,
-        resolvedTheme,
-      ),
-    };
-  }, [hostInfo, renderableDocument, resolvedTheme]);
+  const sandbox = useMcpAppSandbox({
+    hostInfo,
+    renderableDocument,
+    colorScheme: resolvedTheme,
+  });
 
   const hostContext = useMemo<McpUiHostContext>(
     () => ({
