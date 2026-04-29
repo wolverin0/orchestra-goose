@@ -11,7 +11,7 @@
 | `memorymaster-auto-ingest.py` | session-end hook (call `mcp__memorymaster__ingest_claim`) | TODO W6 |
 | `memorymaster-precompact.py` | pre-compact hook (vacuum / WAL checkpoint) | TODO W6 |
 | `memorymaster-validate-wiki.py` | post-tool-use hook on Write/Edit (validate wiki frontmatter) | TODO W6 |
-| `pretool-guardrail.js` (G01-G07) | pre-tool-use hook (sudo/force-push/no-verify guards) | TODO W6 |
+| `pretool-guardrail.js` (G01-G07) | `recipes/guardrails.yaml` (Tier-A soft-block — see HOOKS_GAP_ANALYSIS.md) | ✅ done (soft-block) |
 | `precompact-guardrail.js` | pre-compact hook (block during active orchestration) | TODO W6 |
 | `decision-line-detector.js` | post-tool-use hook on Write (advance active_tasks.md) | TODO W6 |
 | `gitnexus/gitnexus-hook.cjs` | pre-tool-use hook on Grep/Glob/Bash (suggest GN) | TODO W6 |
@@ -22,11 +22,11 @@
 
 | Legacy `~/.claude/skills/` | Goose recipe | Status |
 |---|---|---|
-| `monitoring-setup` | `recipes/monitoring-setup.yaml` | TODO W6 |
-| `project-doctor` | `recipes/project-doctor.yaml` | TODO W6 |
+| `monitoring-setup` | `recipes/monitoring-setup.yaml` | ✅ done |
+| `project-doctor` | `recipes/project-doctor.yaml` | ✅ done |
 | `no-compact` | goose native flag (`/compact` config) | trivial W6 |
-| `handoff` | `recipes/handoff.yaml` | TODO W6 |
-| `clear` | goose native (`/clear`) | done by upstream |
+| `handoff` | `recipes/handoff.yaml` | ✅ done |
+| `clear` | goose native (`/clear`) | ✅ done by upstream |
 
 ## Wezbridge MCP tools (Wave 5)
 
@@ -46,7 +46,7 @@
 |---|---|---|
 | `omniclaude` (Claude pane polling) | `goosed` daemon + `monitor-active-tasks` scheduled recipe | NSSM Windows service install: `nssm install goosed C:\Users\<user>\.local\bin\goose.exe serve` |
 | `tasks-watcher.cjs` | `read_active_tasks` MCP tool (TODO build) OR direct file read in recipes | filesystem watcher logic moves into recipe |
-| `telegram-streamer.cjs` | `escalate-telegram` recipe (TODO build) | invoked by monitor recipe |
+| `telegram-streamer.cjs` | `recipes/escalate-telegram.yaml` | ✅ done — invoked by monitor recipe |
 | Per-project `monitoring.md` frontmatter | `<project>/.goose/project.toml` | see distro-templates/project.toml.example |
 
 ## State files
