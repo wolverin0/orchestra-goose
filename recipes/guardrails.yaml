@@ -1,0 +1,31 @@
+version: "1.0.0"
+title: Guardrails
+description: Tier-A port of legacy ~/.claude/hooks/pretool-guardrail.js. Soft-block (instruction-level) version of G01-G07 rules. The legacy hook runtime-blocked at exit-code-2; this recipe relies on the model honoring the rules + goose's developer extension prompting before destructive ops. Documented soft-block downgrade in HOOKS_GAP_ANALYSIS.md.
+
+extensions:
+  - type: builtin
+    name: developer
+
+prompt: |
+  You are operating with the orchestra-goose guardrail rules. Honor these BEFORE every shell command:
+
+  ## Hard-DENY rules (never execute, abort with explanation)
+
+  - **G01** — `sudo` is forbidden. Sudo bypasses safety; ask the user to run the command themselves if they truly need it.
+  - **G03** — `git push --force` / `git push -f` is forbidden. Use `--force-with-lease` if force-push is necessary; never plain `--force` on a shared branch.
+  - **G04** — `--no-verify` and `--no-gpg-sign` flags on git commands are forbidden. If a hook fails, fix the hook, don't bypass.
+  - **G05** — `git reset --hard main`, `git reset --hard master`, `git reset --hard origin/main`, `git reset --hard origin/master` are forbidden. Use feature branches.
+  - **G07-strict** — `rm -rf $HOME` and `rm -rf /` are forbidden. Always.
+
+  ## Hard-WARN rules (mention in output before executing; user can interject)
+
+  - **G06** — Direct push to `main` or `master` (`git push origin main`). Prefer a PR.
+  - **G07-soft** — `rm -rf` against any path. Confirm target before executing.
+
+  ## Out of scope for goose (versus the legacy CC hook)
+
+  - The legacy hook runtime-BLOCKED at exit code 2; this recipe relies on you the model to honor these rules.
+  - Goose's `developer` extension prompts before destructive shell ops as a backstop — accept those prompts when in doubt.
+  - For HARD runtime enforcement, see HOOKS_GAP_ANALYSIS.md "Tier C" — a custom MCP extension wrapping `developer.shell`. Not built yet.
+
+  Now proceed with the user's task, applying the rules above to every shell command you generate.
