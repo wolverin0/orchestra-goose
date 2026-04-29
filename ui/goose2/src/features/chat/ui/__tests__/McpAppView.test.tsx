@@ -250,4 +250,74 @@ describe("McpAppView nested tool calls", () => {
 
     expect(getLatestAppRendererProps().onFallbackRequest).toBeUndefined();
   });
+
+  it("declares readily available host context fields", async () => {
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({
+        x: 0,
+        y: 0,
+        width: 736,
+        height: 240,
+        top: 0,
+        right: 736,
+        bottom: 240,
+        left: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
+    const matchMediaSpy = vi.fn((query: string) => ({
+      matches: query === "(hover: hover)",
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }));
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = matchMediaSpy;
+
+    try {
+      render(
+        <McpAppView
+          payload={createPayload()}
+          toolResponse={createToolResponse()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("mock-app-renderer")).toBeInTheDocument();
+      });
+
+      expect(getLatestAppRendererProps().hostContext).toEqual(
+        expect.objectContaining({
+          theme: "dark",
+          displayMode: "inline",
+          availableDisplayModes: ["inline"],
+          containerDimensions: {
+            width: 736,
+            height: 240,
+          },
+          locale: navigator.language,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          userAgent: expect.stringMatching(/^goose2\//),
+          platform: "desktop",
+          deviceCapabilities: {
+            touch: false,
+            hover: true,
+          },
+          safeAreaInsets: {
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+          },
+        }),
+      );
+    } finally {
+      window.matchMedia = originalMatchMedia;
+      rectSpy.mockRestore();
+    }
+  });
 });

@@ -11,6 +11,7 @@ import type {
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import packageJson from "../../../../package.json";
 import { getClient } from "@/shared/api/acpConnection";
 import { getGooseServeHostInfo } from "@/shared/api/gooseServeHost";
 import { useTheme } from "@/shared/theme/ThemeProvider";
@@ -34,6 +35,13 @@ interface McpAppViewProps {
 
 const DEFAULT_APP_HEIGHT = 240;
 const INLINE_DISPLAY_MODES = ["inline"] as const;
+const GOOSE2_USER_AGENT = `${packageJson.name}/${packageJson.version}`;
+const DESKTOP_SAFE_AREA_INSETS = {
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+} as const;
 type SizeChangedParams = Parameters<
   NonNullable<AppRendererProps["onSizeChanged"]>
 >[0];
@@ -75,6 +83,22 @@ function buildToolResult(
     isError: toolResponse.isError,
     structuredContent:
       toolResponse.structuredContent as CallToolResult["structuredContent"],
+  };
+}
+
+function matchesMedia(query: string): boolean {
+  return window.matchMedia?.(query).matches ?? false;
+}
+
+function getDeviceCapabilities(): NonNullable<
+  McpUiHostContext["deviceCapabilities"]
+> {
+  return {
+    touch:
+      navigator.maxTouchPoints > 0 ||
+      matchesMedia("(pointer: coarse)") ||
+      matchesMedia("(any-pointer: coarse)"),
+    hover: matchesMedia("(hover: hover)") || matchesMedia("(any-hover: hover)"),
   };
 }
 
@@ -250,7 +274,10 @@ export function McpAppView({
           : undefined,
       locale: navigator.language,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      userAgent: GOOSE2_USER_AGENT,
       platform: "desktop",
+      deviceCapabilities: getDeviceCapabilities(),
+      safeAreaInsets: DESKTOP_SAFE_AREA_INSETS,
     }),
     [containerWidth, inlineHeight, resolvedTheme],
   );
