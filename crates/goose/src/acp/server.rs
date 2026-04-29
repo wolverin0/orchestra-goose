@@ -6,7 +6,6 @@ use crate::agents::extension::{Envs, PLATFORM_EXTENSIONS};
 use crate::agents::mcp_client::{GooseMcpHostInfo, McpClientTrait};
 use crate::agents::platform_extensions::developer::DeveloperClient;
 use crate::agents::{Agent, AgentConfig, ExtensionConfig, GoosePlatform, SessionConfig};
-use crate::config::base::CONFIG_YAML_NAME;
 use crate::config::extensions::get_enabled_extensions_with_config;
 use crate::config::paths::Paths;
 use crate::config::permission::PermissionManager;
@@ -184,7 +183,6 @@ pub struct GooseAcpAgent {
     client_fs_capabilities: OnceCell<FileSystemCapabilities>,
     client_terminal: OnceCell<bool>,
     client_mcp_host_info: OnceCell<GooseMcpHostInfo>,
-    config_dir: std::path::PathBuf,
     session_manager: Arc<SessionManager>,
     thread_manager: Arc<crate::session::ThreadManager>,
     permission_manager: Arc<PermissionManager>,
@@ -726,12 +724,9 @@ async fn resolve_provider_and_model_from_config(
 /// Convenience wrapper: reads config from disk, then resolves provider + model.
 /// Cheap enough to call from `on_new_session` (file + registry reads, no network).
 async fn resolve_provider_and_model(
-    config_dir: &std::path::Path,
     goose_session: &Session,
 ) -> Result<(String, crate::model::ModelConfig), String> {
-    let config =
-        Config::new(config_dir.join(CONFIG_YAML_NAME), "goose").map_err(|e| e.to_string())?;
-    resolve_provider_and_model_from_config(&config, goose_session).await
+    resolve_provider_and_model_from_config(Config::global(), goose_session).await
 }
 
 fn build_mode_state(current_mode: GooseMode) -> Result<SessionModeState, sacp::Error> {
@@ -850,7 +845,7 @@ impl GooseAcpAgent {
         let thread_manager = Arc::new(crate::session::ThreadManager::new(
             session_manager.storage().clone(),
         ));
-        let permission_manager = Arc::new(PermissionManager::new(config_dir.clone()));
+        let permission_manager = Arc::new(PermissionManager::new(config_dir));
         let provider_inventory = ProviderInventoryService::new(session_manager.storage().clone());
 
         Ok(Self {
@@ -860,7 +855,6 @@ impl GooseAcpAgent {
             client_fs_capabilities: OnceCell::new(),
             client_terminal: OnceCell::new(),
             client_mcp_host_info: OnceCell::new(),
-            config_dir,
             session_manager,
             thread_manager,
             permission_manager,
@@ -869,14 +863,6 @@ impl GooseAcpAgent {
             provider_inventory,
             goose_platform,
         })
-    }
-
-    fn load_config(&self) -> Result<Config> {
-        Config::new(self.config_dir.join(CONFIG_YAML_NAME), "goose").map_err(Into::into)
-    }
-
-    fn config(&self) -> Result<Config, sacp::Error> {
-        self.load_config().internal_err_ctx("Failed to read config")
     }
 
     async fn create_provider(
@@ -914,85 +900,79 @@ impl GooseAcpAgent {
 
         let mut prebuilt_provider = None;
         if should_refresh_inventory_for_session_init(&inventory) {
-            match self.load_config() {
-                Ok(config) => {
-                    let ext_state = EnabledExtensionsState::extensions_or_default(
-                        Some(&goose_session.extension_data),
-                        &config,
-                    );
-                    match self
-                        .create_provider(provider_name, model_config.clone(), ext_state)
-                        .await
-                    {
-                        Ok(provider) => {
-                            let provider_id = provider_name.clone();
-                            prebuilt_provider = Some(provider.clone());
-                            match self
-                                .provider_inventory
-                                .plan_refresh(std::slice::from_ref(&provider_id))
-                                .await
-                            {
-                                Ok(plan) if plan.started.iter().any(|id| id == &provider_id) => {
-                                    match provider.fetch_recommended_models().await {
-                                        Ok(models) => {
-                                            if let Err(error) = self
-                                                .provider_inventory
-                                                .store_refreshed_models(&provider_id, &models)
-                                                .await
-                                            {
-                                                warn!(
-                                                    provider = %provider_id,
-                                                    error = %error,
-                                                    "failed to store refreshed provider inventory during session init"
-                                                );
-                                            }
+            {
+                let config = Config::global();
+                let ext_state = EnabledExtensionsState::extensions_or_default(
+                    Some(&goose_session.extension_data),
+                    config,
+                );
+                match self
+                    .create_provider(provider_name, model_config.clone(), ext_state)
+                    .await
+                {
+                    Ok(provider) => {
+                        let provider_id = provider_name.clone();
+                        prebuilt_provider = Some(provider.clone());
+                        match self
+                            .provider_inventory
+                            .plan_refresh(std::slice::from_ref(&provider_id))
+                            .await
+                        {
+                            Ok(plan) if plan.started.iter().any(|id| id == &provider_id) => {
+                                match provider.fetch_recommended_models().await {
+                                    Ok(models) => {
+                                        if let Err(error) = self
+                                            .provider_inventory
+                                            .store_refreshed_models(&provider_id, &models)
+                                            .await
+                                        {
+                                            warn!(
+                                                provider = %provider_id,
+                                                error = %error,
+                                                "failed to store refreshed provider inventory during session init"
+                                            );
                                         }
-                                        Err(error) => {
-                                            if let Err(store_error) = self
-                                                .provider_inventory
-                                                .store_refresh_error(
-                                                    &provider_id,
-                                                    error.to_string(),
-                                                )
-                                                .await
-                                            {
-                                                warn!(
-                                                    provider = %provider_id,
-                                                    error = %store_error,
-                                                    "failed to store provider inventory refresh error during session init"
-                                                );
-                                            }
+                                    }
+                                    Err(error) => {
+                                        if let Err(store_error) = self
+                                            .provider_inventory
+                                            .store_refresh_error(
+                                                &provider_id,
+                                                error.to_string(),
+                                            )
+                                            .await
+                                        {
+                                            warn!(
+                                                provider = %provider_id,
+                                                error = %store_error,
+                                                "failed to store provider inventory refresh error during session init"
+                                            );
                                         }
                                     }
                                 }
-                                Ok(_) => {}
-                                Err(error) => warn!(
-                                    provider = %provider_id,
-                                    error = %error,
-                                    "failed to plan provider inventory refresh during session init"
-                                ),
                             }
-
-                            if let Ok(Some(refreshed_inventory)) = self
-                                .provider_inventory
-                                .entry_for_provider(provider_name)
-                                .await
-                            {
-                                inventory = refreshed_inventory;
-                            }
+                            Ok(_) => {}
+                            Err(error) => warn!(
+                                provider = %provider_id,
+                                error = %error,
+                                "failed to plan provider inventory refresh during session init"
+                            ),
                         }
-                        Err(error) => warn!(
-                            provider = %provider_name,
-                            error = %error,
-                            "failed to initialize provider during synchronous inventory refresh"
-                        ),
+
+                        if let Ok(Some(refreshed_inventory)) = self
+                            .provider_inventory
+                            .entry_for_provider(provider_name)
+                            .await
+                        {
+                            inventory = refreshed_inventory;
+                        }
                     }
+                    Err(error) => warn!(
+                        provider = %provider_name,
+                        error = %error,
+                        "failed to initialize provider during synchronous inventory refresh"
+                    ),
                 }
-                Err(error) => warn!(
-                    provider = %provider_name,
-                    error = %error,
-                    "failed to load config during synchronous inventory refresh"
-                ),
             }
         }
 
@@ -1030,7 +1010,6 @@ impl GooseAcpAgent {
         let sessions = Arc::clone(&self.sessions);
         let session_manager = Arc::clone(&self.session_manager);
         let permission_manager = Arc::clone(&self.permission_manager);
-        let config_dir = self.config_dir.clone();
         let builtins = self.builtins.clone();
         let client_fs_capabilities = self
             .client_fs_capabilities
@@ -1047,15 +1026,7 @@ impl GooseAcpAgent {
             let t_setup = std::time::Instant::now();
             debug!(target: "perf", sid = %sid, "perf: agent_setup start (background)");
             // Shared config — read once, used by both phases.
-            let config = match Config::new(config_dir.join(CONFIG_YAML_NAME), "goose") {
-                Ok(c) => c,
-                Err(e) => {
-                    let msg = e.to_string();
-                    error!(error = %msg, "Background agent setup failed (config)");
-                    let _ = agent_tx.send(Some(Err(msg)));
-                    return;
-                }
-            };
+            let config = Config::global();
 
             // ── Phase 1: create agent + init provider (fast, ~55ms) ──────
             let phase1: Result<Arc<Agent>, String> = async {
@@ -1076,11 +1047,11 @@ impl GooseAcpAgent {
                 // fall back to reading config (e.g. load_session path).
                 let (provider_name, model_config) = match resolved_provider {
                     Some(resolved) => resolved,
-                    None => resolve_provider_and_model_from_config(&config, &goose_session).await?,
+                    None => resolve_provider_and_model_from_config(config, &goose_session).await?,
                 };
                 let ext_state = EnabledExtensionsState::extensions_or_default(
                     Some(&goose_session.extension_data),
-                    &config,
+                    config,
                 );
                 let provider = match prebuilt_provider {
                     Some(provider) => provider,
@@ -1793,7 +1764,7 @@ impl GooseAcpAgent {
 
         // Resolve provider + model from config so we can include the current
         // model in the response without waiting for the full agent setup.
-        let resolved = resolve_provider_and_model(&self.config_dir, &goose_session).await;
+        let resolved = resolve_provider_and_model(&goose_session).await;
         let initial_usage_update = resolved
             .as_ref()
             .ok()
@@ -2195,7 +2166,7 @@ impl GooseAcpAgent {
 
         let mode_state = build_mode_state(loaded_mode)?;
 
-        let resolved = resolve_provider_and_model(&self.config_dir, &goose_session).await;
+        let resolved = resolve_provider_and_model(&goose_session).await;
         let initial_usage_update = resolved
             .as_ref()
             .ok()
@@ -2418,7 +2389,7 @@ impl GooseAcpAgent {
         model_id: &str,
     ) -> Result<SetSessionModelResponse, sacp::Error> {
         let internal_id = self.internal_session_id(thread_id).await?;
-        let config = self.config()?;
+        let config = Config::global();
         let agent = self.get_session_agent_provider_ready(thread_id).await?;
         let current_provider = agent
             .provider()
@@ -2552,7 +2523,7 @@ impl GooseAcpAgent {
         request_params: Option<std::collections::HashMap<String, serde_json::Value>>,
     ) -> Result<(), sacp::Error> {
         let internal_id = self.internal_session_id(thread_id).await?;
-        let config = self.config()?;
+        let config = Config::global();
         let agent = self.get_session_agent_provider_ready(thread_id).await?;
         let current_provider = agent
             .provider()
@@ -2700,7 +2671,7 @@ impl GooseAcpAgent {
             .insert(new_thread_id.clone(), session);
 
         let mode_state = build_mode_state(self.goose_mode)?;
-        let resolved = resolve_provider_and_model(&self.config_dir, &goose_session).await;
+        let resolved = resolve_provider_and_model(&goose_session).await;
         let (model_state, config_options, prebuilt_provider) = self
             .prepare_session_init_config(&resolved, &mode_state, &goose_session)
             .await;
@@ -3055,7 +3026,7 @@ impl GooseAcpAgent {
         &self,
         req: ReadConfigRequest,
     ) -> Result<ReadConfigResponse, sacp::Error> {
-        let config = self.config()?;
+        let config = Config::global();
         let response = match config.get_param::<serde_json::Value>(&req.key) {
             Ok(value) => ReadConfigResponse { value },
             Err(crate::config::ConfigError::NotFound(_)) => ReadConfigResponse {
@@ -3071,7 +3042,7 @@ impl GooseAcpAgent {
         &self,
         req: UpsertConfigRequest,
     ) -> Result<EmptyResponse, sacp::Error> {
-        let config = self.config()?;
+        let config = Config::global();
         config.set_param(&req.key, &req.value).internal_err()?;
         Ok(EmptyResponse {})
     }
@@ -3081,7 +3052,7 @@ impl GooseAcpAgent {
         &self,
         req: RemoveConfigRequest,
     ) -> Result<EmptyResponse, sacp::Error> {
-        let config = self.config()?;
+        let config = Config::global();
         config.delete(&req.key).internal_err()?;
         Ok(EmptyResponse {})
     }
@@ -3091,7 +3062,7 @@ impl GooseAcpAgent {
         &self,
         req: CheckSecretRequest,
     ) -> Result<CheckSecretResponse, sacp::Error> {
-        let config = self.config()?;
+        let config = Config::global();
         let exists = config.get_secret::<serde_json::Value>(&req.key).is_ok();
         Ok(CheckSecretResponse { exists })
     }
@@ -3101,7 +3072,7 @@ impl GooseAcpAgent {
         &self,
         req: UpsertSecretRequest,
     ) -> Result<EmptyResponse, sacp::Error> {
-        let config = self.config()?;
+        let config = Config::global();
         config.set_secret(&req.key, &req.value).internal_err()?;
         Ok(EmptyResponse {})
     }
@@ -3111,7 +3082,7 @@ impl GooseAcpAgent {
         &self,
         req: RemoveSecretRequest,
     ) -> Result<EmptyResponse, sacp::Error> {
-        let config = self.config()?;
+        let config = Config::global();
         config.delete_secret(&req.key).internal_err()?;
         Ok(EmptyResponse {})
     }
