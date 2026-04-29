@@ -66,8 +66,9 @@ export function useAppStartup() {
         store.setProvidersLoading(true);
         inventoryStore.setLoading(true);
         try {
-          const { getProviderInventory } =
-            await import("@/features/providers/api/inventory");
+          const { getProviderInventory } = await import(
+            "@/features/providers/api/inventory"
+          );
           const entries = await getProviderInventory();
 
           // Populate inventory store
@@ -101,8 +102,9 @@ export function useAppStartup() {
             initialEntries && initialEntries.length > 0
               ? initialEntries
               : await (async () => {
-                  const { getProviderInventory } =
-                    await import("@/features/providers/api/inventory");
+                  const { getProviderInventory } = await import(
+                    "@/features/providers/api/inventory"
+                  );
                   return getProviderInventory();
                 })();
           const configuredProviderIds = entries
