@@ -223,13 +223,14 @@ describe("McpAppView nested tool calls", () => {
     });
 
     const borderedRoot = screen.getByTestId("mcp-app-view");
-    expect(borderedRoot.className).toContain("md:-mx-4");
-    expect(borderedRoot.className).toContain("md:w-[calc(100%+2rem)]");
+    expect(borderedRoot.className).not.toContain("md:-mx-4");
+    expect(borderedRoot.className).not.toContain("md:w-[calc(100%+2rem)]");
 
     const borderedChrome = borderedRoot.firstElementChild as HTMLElement | null;
     expect(borderedChrome).not.toBeNull();
     expect(borderedChrome?.className).toContain("rounded-2xl");
     expect(borderedChrome?.className).toContain("border");
+    expect(borderedChrome?.className).toContain("[&_iframe]:block");
 
     rerender(
       <McpAppView

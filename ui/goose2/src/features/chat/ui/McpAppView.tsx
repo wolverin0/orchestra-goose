@@ -378,12 +378,10 @@ export function McpAppView({
     renderableDocument !== null && sandbox !== null && renderError === null;
   const shouldShowFallback =
     renderError !== null || renderableDocument === null;
-  const rootClassName = renderableDocument?.prefersBorder
-    ? "my-3 w-full md:-mx-4 md:w-[calc(100%+2rem)]"
-    : "my-3 w-full";
+  const rootClassName = "my-3 w-full";
   const appChromeClassName = renderableDocument?.prefersBorder
-    ? "w-full overflow-hidden rounded-2xl border border-border-primary bg-background/40 shadow-sm"
-    : "w-full bg-transparent";
+    ? "w-full overflow-hidden rounded-2xl border border-border-primary bg-background/40 shadow-sm [&_iframe]:block"
+    : "w-full bg-transparent [&_iframe]:block";
   const appChromeStyle = {
     height: inlineHeight,
     colorScheme: resolvedTheme,
