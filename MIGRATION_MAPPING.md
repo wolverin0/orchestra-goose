@@ -66,6 +66,37 @@
 | `~/.claude/settings.json` env block (Anthropic API key, etc.) | goose `~/.config/goose/config.yaml` `GOOSE_PROVIDER` + the `claude-acp` adapter (no API key) |
 | Claude Code OAuth (Google) | piggyback via `claude-agent-acp` npm package |
 
+## CRITICAL latency finding (2026-04-29 benchmark)
+
+The lookahead-brief recipe was benchmarked end-to-end on wezbridge:
+
+| Phase | Time |
+|---|---|
+| Cold (claude-acp + 2 MCP servers spawn + multi-turn LLM) | **57.2s** |
+| Warm (subsequent run, MCP cached) | **47.9s** |
+
+**This is 100-1000× slower than the Claude Code L1 hook (50-300ms).** Root causes:
+1. Recipe spawns 2 stdio MCP extensions per invoke (memorymaster + gitnexus) — ~10-15s cold each
+2. claude-acp adapter spawn — ~12s cold
+3. Recipe is multi-turn — model reads file, calls MM, calls GN, reads graphify, composes briefing, THEN answers user task → 4-6 LLM round-trips
+4. Each LLM call goes Buenos Aires → US ~200ms RTT + thinking time
+
+**Implications:**
+- ❌ Recipe-as-pre-prompt-hook is **NOT viable** for interactive sessions (47s is too slow per turn)
+- ✅ Recipe-as-scheduled-job is **fine** (monitor-active-tasks every 30s tolerates 30s+ exec)
+- ⚠️ Recipe-as-explicit-orchestration (user runs `/handoff`, `/project-doctor`) is **acceptable**
+
+**Fix paths (Wave 2 follow-up):**
+1. **Run goosed in always-on mode** with extensions pre-loaded — saves ~25-30s of MCP spawn cost. NSSM service install (W4.1 done) sets this up.
+2. **Use `tom` (Top Of Mind) extension for context injection** — reads `GOOSE_MOIM_MESSAGE_TEXT` env var per turn, no recipe needed. Pre-compute briefing async, drop into env var, model picks it up next prompt. ZERO per-prompt overhead in the agent loop.
+3. **Single-turn recipe** — bake all the protocol into one prompt with conditional logic, target ≤2 LLM calls instead of 4-6.
+
+**Recommended (W2/W3 follow-up):** ditch the recipe-as-pre-prompt-hook approach in favor of the `tom` extension + a separate scheduled briefer that pre-computes briefings into the env file. This delivers the look-ahead UX at near-zero per-turn cost.
+
+This is the biggest architectural finding from Wave 0/2 hands-on testing. Update Wave 2 acceptance criteria: targets need to be cold ≤5s (with goosed warm-MCPs), warm ≤500ms (tom-extension path).
+
+---
+
 ## What stays unchanged
 
 - **MemoryMaster** repo — entire 30k LOC Python codebase preserved as-is. Only addition: `query_for_task` MCP tool (W2.2 done).
