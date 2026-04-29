@@ -71,6 +71,8 @@ export function MessageTimeline({
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const isNearBottomRef = useRef(true);
   const stickyScrollUntilRef = useRef(0);
+  const autoScrollTimersRef = useRef<number[]>([]);
+  const lastMcpAppSignatureRef = useRef<string | null>(null);
   const [pulsingMessageId, setPulsingMessageId] = useState<string | null>(null);
   const visibleMessages = messages.filter(
     (m) =>
@@ -137,6 +139,28 @@ export function MessageTimeline({
     },
     [scrollToBottom],
   );
+
+  const schedulePinnedBottomBurst = useCallback(() => {
+    stickyScrollUntilRef.current = performance.now() + MCP_APP_STICKY_SCROLL_MS;
+
+    for (const timer of autoScrollTimersRef.current) {
+      window.clearTimeout(timer);
+    }
+    autoScrollTimersRef.current = [];
+
+    const run = () => {
+      scrollToBottom("auto");
+    };
+
+    run();
+
+    for (const delay of [120, 300, 650]) {
+      const timer = window.setTimeout(() => {
+        run();
+      }, delay);
+      autoScrollTimersRef.current.push(timer);
+    }
+  }, [scrollToBottom]);
 
   const requestMcpAppAutoScroll = useCallback((element: HTMLElement | null) => {
     const container = containerRef.current;
@@ -222,6 +246,45 @@ export function MessageTimeline({
 
     return () => window.clearTimeout(timer);
   }, [pulsingMessageId]);
+
+  useEffect(
+    () => () => {
+      for (const timer of autoScrollTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+      autoScrollTimersRef.current = [];
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const lastMessage = visibleMessages.at(-1);
+    if (!lastMessage || lastMessage.role !== "assistant") {
+      lastMcpAppSignatureRef.current = null;
+      return;
+    }
+
+    const mcpAppCount = lastMessage.content.filter(
+      (block) => block.type === "mcpApp",
+    ).length;
+    if (mcpAppCount === 0) {
+      lastMcpAppSignatureRef.current = null;
+      return;
+    }
+
+    const signature = `${lastMessage.id}:${mcpAppCount}:${lastMessage.content.length}`;
+    if (lastMcpAppSignatureRef.current === signature) {
+      return;
+    }
+    lastMcpAppSignatureRef.current = signature;
+
+    if (
+      isNearBottomRef.current ||
+      stickyScrollUntilRef.current > performance.now()
+    ) {
+      schedulePinnedBottomBurst();
+    }
+  }, [schedulePinnedBottomBurst, visibleMessages]);
 
   const handleScroll = () => {
     const container = containerRef.current;
