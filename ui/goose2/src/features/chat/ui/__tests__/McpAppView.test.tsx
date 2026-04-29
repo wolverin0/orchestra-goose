@@ -235,4 +235,19 @@ describe("McpAppView nested tool calls", () => {
     expect(borderlessChrome?.className).not.toContain("shadow-sm");
     expect(borderlessChrome?.className).not.toContain("overflow-hidden");
   });
+
+  it("does not install a fallback handler for non-standard app requests", async () => {
+    render(
+      <McpAppView
+        payload={createPayload()}
+        toolResponse={createToolResponse()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("mock-app-renderer")).toBeInTheDocument();
+    });
+
+    expect(getLatestAppRendererProps().onFallbackRequest).toBeUndefined();
+  });
 });
