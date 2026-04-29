@@ -1,0 +1,35 @@
+version: "1.0.0"
+title: DECISION-line Watch
+description: Scheduled recipe (Tier B) — scans recently-modified files for the convention "DECISION: phase-N-complete next=T-NNN" lines, advances active_tasks.md when matched. Goose port of legacy decision-line-detector.js (PostToolUse on Write/Edit). Run via `goose schedule` every 2-5 minutes during active work.
+
+extensions:
+  - type: builtin
+    name: developer
+  - type: stdio
+    name: memorymaster
+    cmd: python
+    args: ["-m", "memorymaster.mcp_server"]
+    envs:
+      MEMORYMASTER_DEFAULT_DB: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster\\memorymaster.db"
+      MEMORYMASTER_WORKSPACE: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster"
+
+prompt: |
+  Scan for DECISION-line pointer advancement signals in current project. Read-only check, then optional file write.
+
+  Steps:
+
+  1. List files modified in last 10 minutes (`git diff --name-only HEAD@{10.minutes.ago}` OR fallback to `find . -mmin -10 -type f` if git tags don't go back that far).
+
+  2. For each modified file, grep for line matching:
+     `^DECISION:\s+phase-(\d+)-complete\s+next=(T-?\d+)`
+     OR `^DECISION:\s+task-(T-?\d+)-complete(?:\s+next=(T-?\d+))?`
+
+  3. If any match: extract the next task ID (or fall back to "next unchecked roadmap item"). Use the `mcp__memorymaster__read_active_tasks` tool to read current vault/active_tasks.md state. If the next task ID is in the all_tasks list AND its status is "pending", advance the pointer.
+
+  4. To advance: rewrite vault/active_tasks.md so the just-completed task's YAML has `status: completed` + `completed_at: <now>`, and the next task's YAML has `status: in_progress` + `dispatched_at: <now>`. Use Write (not Edit) for atomicity.
+
+  5. Ingest a short event claim via `mcp__memorymaster__ingest_claim` (claim_type=event, source_agent=decision-line-watch) so the change is auditable.
+
+  6. Print 1 line per advancement, or "no DECISION lines found" if nothing matched.
+
+  Idempotent: if the recipe re-runs and the DECISION line already triggered an advancement, the in_progress task ID won't match the already-advanced pointer — skip silently.

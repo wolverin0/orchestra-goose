@@ -1,0 +1,34 @@
+version: "1.0.0"
+title: Validate Wiki
+description: Scheduled recipe — scans obsidian-vault/wiki/ articles for missing frontmatter / missing wikilinks / contradictions. Goose port of legacy memorymaster-validate-wiki.py (PostToolUse on Write/Edit). Run via `goose schedule` every 30 minutes or on demand.
+
+extensions:
+  - type: builtin
+    name: developer
+
+prompt: |
+  Run a wiki health check against `obsidian-vault/wiki/`. Report-only; do NOT auto-fix.
+
+  Per-article checks:
+  1. Has frontmatter block (`---\n...\n---`) at top
+  2. Frontmatter has required fields: title, scope, type
+  3. Has at least one `[[wikilink]]` (otherwise the article is orphaned from the graph)
+  4. Has both compiled-truth section (above-the-line) AND timeline section (below-the-line)
+  5. Last-modified within 90 days (else flag as stale)
+
+  Output format:
+  ```
+  WIKI HEALTH — <count> articles scanned
+
+  ❌ Critical issues:
+    - <relpath>:1 — missing frontmatter
+    - <relpath>:1 — frontmatter missing 'scope' field
+
+  ⚠️  Warnings:
+    - <relpath> — no wikilinks (orphan)
+    - <relpath> — stale (last modified <date>)
+
+  ✅ <count> articles healthy
+  ```
+
+  Skip silently if `obsidian-vault/wiki/` doesn't exist (not all projects have a wiki).

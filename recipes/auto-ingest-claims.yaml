@@ -1,0 +1,42 @@
+version: "1.0.0"
+title: Auto-ingest Claims
+description: Scheduled recipe — scans recent goose session output for durable learnings, ingests them as MemoryMaster claims. Goose port of legacy memorymaster-auto-ingest.py (Stop hook on Claude Code). Run via `goose schedule` every N completed sessions or every hour.
+
+extensions:
+  - type: builtin
+    name: developer
+  - type: stdio
+    name: memorymaster
+    cmd: python
+    args: ["-m", "memorymaster.mcp_server"]
+    envs:
+      MEMORYMASTER_DEFAULT_DB: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster\\memorymaster.db"
+      MEMORYMASTER_WORKSPACE: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster"
+
+prompt: |
+  Extract durable learnings from recent goose session output and ingest as MM claims.
+
+  Steps:
+
+  1. Find recent session files: `~/.config/goose/data/sessions/*.jsonl` (Linux/macOS) or `%APPDATA%/Block/goose/data/sessions/*.jsonl` (Windows). Pick sessions modified in the last 1 hour that haven't been processed (track via `~/.orchestra-goose/auto-ingest-cursor.txt`).
+
+  2. For each unprocessed session, scan the assistant turns for the durable-claim signals:
+     - `DECISION:` (architectural/design choice)
+     - `BUG_ROOT_CAUSE:` (bug fix attribution)
+     - `GOTCHA:` (non-obvious behavior)
+     - `CONSTRAINT:` (hard requirement)
+     - `ARCHITECTURE:` (architectural insight)
+
+  3. For each match: extract a 1-2 sentence summary. Skip if the learning is trivial (e.g. "the test passed", "the file was created").
+
+  4. Ingest each via `mcp__memorymaster__ingest_claim`:
+     - claim_type matches the signal (decision/gotcha/constraint/architecture)
+     - source_agent="goose-session-<id>"
+     - confidence=0.7 (medium — Steward will validate later)
+     - NEVER ingest credentials, IPs, tokens, or raw code
+
+  5. Update cursor file with last processed session id.
+
+  6. Print 1 line per claim ingested + final count. Print 0 lines if nothing notable.
+
+  This recipe is the goose-native replacement for the Stop hook auto-ingest behavior. Goose has no native session-end hook, so this runs on a schedule.
