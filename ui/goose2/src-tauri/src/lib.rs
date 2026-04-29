@@ -35,7 +35,7 @@ pub fn run() {
         .manage(PersonaStore::new())
         .manage(GooseConfig::new())
         .setup(|app| {
-            app.manage(DistroBundleState::new(&app.handle()));
+            app.manage(DistroBundleState::new(app.handle()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
