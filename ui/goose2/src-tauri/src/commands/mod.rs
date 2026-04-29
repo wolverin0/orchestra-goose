@@ -1,7 +1,6 @@
 pub mod acp;
 pub mod agent_setup;
 pub mod agents;
-pub mod credentials;
 pub mod distro;
 pub mod doctor;
 pub mod git;
