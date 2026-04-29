@@ -73,6 +73,12 @@ function createPayload({
       name: "inspect-messaging",
       extensionName: "mcpappbench_local_",
       resourceUri: "ui://inspect-messaging",
+      meta: {
+        ui: {
+          resourceUri: "ui://inspect-messaging",
+        },
+        goose_extension: "mcpappbench_local_",
+      },
     },
     resource: {
       result: {
@@ -313,6 +319,22 @@ describe("McpAppView nested tool calls", () => {
             right: 0,
             bottom: 0,
             left: 0,
+          },
+          toolInfo: {
+            id: "tool-1",
+            tool: {
+              name: "inspect-messaging",
+              title: "inspect messaging",
+              inputSchema: {
+                type: "object",
+              },
+              _meta: {
+                ui: {
+                  resourceUri: "ui://inspect-messaging",
+                },
+                goose_extension: "mcpappbench_local_",
+              },
+            },
           },
         }),
       );

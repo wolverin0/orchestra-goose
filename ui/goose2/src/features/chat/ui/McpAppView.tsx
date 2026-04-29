@@ -55,6 +55,8 @@ type CallToolResult = Awaited<
 type ReadResourceResult = Awaited<
   ReturnType<NonNullable<AppRendererProps["onReadResource"]>>
 >;
+type HostContextToolInfo = NonNullable<McpUiHostContext["toolInfo"]>;
+type HostContextTool = HostContextToolInfo["tool"];
 
 function appendDomains(
   params: URLSearchParams,
@@ -108,6 +110,25 @@ function getDeviceCapabilities(): NonNullable<
       matchesMedia("(pointer: coarse)") ||
       matchesMedia("(any-pointer: coarse)"),
     hover: matchesMedia("(hover: hover)") || matchesMedia("(any-hover: hover)"),
+  };
+}
+
+function buildHostContextToolInfo(payload: McpAppPayload): HostContextToolInfo {
+  const tool: HostContextTool = {
+    name: payload.tool.name,
+    title: payload.toolCallTitle,
+    inputSchema: {
+      type: "object",
+    },
+  };
+
+  if (payload.tool.meta) {
+    tool._meta = payload.tool.meta;
+  }
+
+  return {
+    id: payload.toolCallId,
+    tool,
   };
 }
 
@@ -287,8 +308,9 @@ export function McpAppView({
       platform: "desktop",
       deviceCapabilities: getDeviceCapabilities(),
       safeAreaInsets: DESKTOP_SAFE_AREA_INSETS,
+      toolInfo: buildHostContextToolInfo(payload),
     }),
-    [containerWidth, inlineHeight, resolvedTheme],
+    [containerWidth, inlineHeight, payload, resolvedTheme],
   );
 
   const handleOpenLink = useCallback(async ({ url }: { url: string }) => {
