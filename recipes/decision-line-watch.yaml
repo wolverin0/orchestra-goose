@@ -20,9 +20,10 @@ prompt: |
 
   1. List files modified in last 10 minutes (`git diff --name-only HEAD@{10.minutes.ago}` OR fallback to `find . -mmin -10 -type f` if git tags don't go back that far).
 
-  2. For each modified file, grep for line matching:
-     `^DECISION:\s+phase-(\d+)-complete\s+next=(T-?\d+)`
-     OR `^DECISION:\s+task-(T-?\d+)-complete(?:\s+next=(T-?\d+))?`
+  2. For each modified file, grep for either of these line patterns (regex):
+     - "^DECISION" + colon + " phase-N-complete next=T-NNN"
+     - "^DECISION" + colon + " task-T-NNN-complete (next=T-NNN optional)"
+     where N and NNN are numbers. Match case-sensitive on "DECISION".
 
   3. If any match: extract the next task ID (or fall back to "next unchecked roadmap item"). Use the `mcp__memorymaster__read_active_tasks` tool to read current vault/active_tasks.md state. If the next task ID is in the all_tasks list AND its status is "pending", advance the pointer.
 
