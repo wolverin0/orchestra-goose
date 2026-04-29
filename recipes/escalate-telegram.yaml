@@ -1,0 +1,45 @@
+version: "1.0.0"
+title: Escalate to Telegram
+description: Post a structured event to a project's configured Telegram chat. Wraps the legacy telegram-streamer.cjs functionality. Called by monitor-active-tasks and other recipes when escalation is needed.
+
+parameters:
+  - key: project_name
+    input_type: string
+    requirement: required
+    description: Project name (used to look up its Telegram chat_id from .goose/project.toml).
+  - key: event_type
+    input_type: string
+    requirement: required
+    description: One of "stuck", "permission", "completed", "error", "info".
+  - key: message
+    input_type: string
+    requirement: required
+    description: Human-readable event message (≤500 chars).
+
+extensions:
+  - type: builtin
+    name: developer
+
+prompt: |
+  Escalate event to Telegram for project {{ project_name }}.
+
+  Steps:
+
+  1. Read `<project>/.goose/project.toml`, extract `monitoring.escalation_channel`. Possible values:
+     - "log-only" (or missing) → write to ~/.orchestra-goose/escalations.log only, no Telegram. Done.
+     - "<chat_id>" (numeric or "-100..." group format) → proceed with Telegram POST.
+     - "none" → skip entirely.
+
+  2. If chat_id is real, look up TELEGRAM_BOT_TOKEN from environment. If missing, fall back to log-only and emit a warning.
+
+  3. Format message as:
+       [orchestra-goose · {{ project_name }} · {{ event_type }}]
+       {{ message }}
+
+  4. POST to https://api.telegram.org/bot<token>/sendMessage with chat_id + text. Use `parse_mode=HTML` if message has HTML; otherwise plain.
+
+  5. Append to ~/.orchestra-goose/escalations.log regardless of success: `<ISO timestamp> · {{ project_name }} · {{ event_type }} · {{ message }}`.
+
+  6. Print 1-line confirmation: "ok" / "log-only" / "error: <reason>".
+
+  Idempotent: dedup against the same event posted in the last 5 minutes (read tail of escalations.log) to prevent flooding.

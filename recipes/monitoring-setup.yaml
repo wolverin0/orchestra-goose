@@ -1,0 +1,52 @@
+version: "1.0.0"
+title: Monitoring Setup
+description: Bootstrap a project for orchestra-goose orchestration. Creates .goose/project.toml + vault/active_tasks.md if missing, runs graphify if not indexed, ingests an opt-in MM claim. Goose port of the /monitoring-setup skill (mm-c9a0~2 era).
+
+extensions:
+  - type: builtin
+    name: developer
+  - type: stdio
+    name: memorymaster
+    cmd: python
+    args: ["-m", "memorymaster.mcp_server"]
+    envs:
+      MEMORYMASTER_DEFAULT_DB: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster\\memorymaster.db"
+      MEMORYMASTER_WORKSPACE: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster"
+
+prompt: |
+  Bootstrap orchestration for the current project. Idempotent — safe to run repeatedly.
+
+  Pre-flight (blocking checks — fail clearly if any missing):
+  - Project must be a git repo (`.git/` directory present)
+  - Project must have at least one of: package.json / Cargo.toml / pyproject.toml / setup.py / Gemfile / go.mod (i.e., real codebase, not docs-only)
+
+  Steps (idempotent):
+
+  1. Create `.goose/` directory if missing.
+
+  2. Create `.goose/project.toml` if missing, using `distro-templates/project.toml.example` from the orchestra-goose fork as the template. Fill in:
+     - project.name = basename of cwd
+     - project.scope = "project:" + project.name
+     - active_tasks_path = "vault/active_tasks.md"
+
+  3. Create `vault/active_tasks.md` if missing, with a single seed task:
+       ## T-000 · Seed
+       ```yaml
+       status: completed
+       owner: orchestra-goose
+       created_at: <ISO timestamp>
+       ```
+       Initial seed entry — replace with real tasks as you work.
+
+  4. Run `graphify` if `graphify-out/GRAPH_REPORT.md` is missing OR > 30 days old. (If the graphify CLI is not on PATH, log a warning and skip.)
+
+  5. Ingest a single setup claim via `mcp__memorymaster__ingest_claim`:
+       claim_type=event, source_agent=orchestra-goose-monitoring-setup,
+       text="Project <name> onboarded to orchestra-goose orchestration on <date>. Files created: ..."
+
+  6. Print a 5-line summary: what was created, what was already in place, what was skipped (with reasons).
+
+  Out of scope:
+  - Configuring Telegram (separate; user provides chat_id manually in project.toml)
+  - Modifying global goose config — only project-local changes
+  - Removing existing monitoring.md (legacy CC convention) — keep it during transition
