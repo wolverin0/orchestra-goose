@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: Look-ahead Brief
+description: Auto-fetch task-aware briefing from MemoryMaster before working on the user's task. Goose-native equivalent of the Claude Code L1 hook (mm-2883).
+
+parameters:
+  - key: user_task
+    input_type: string
+    requirement: required
+    description: The actual task the user wants done in this session.
+
+extensions:
+  - type: builtin
+    name: developer
+  - type: stdio
+    name: memorymaster
+    cmd: python
+    args:
+      - "-m"
+      - "memorymaster.mcp_server"
+    envs:
+      MEMORYMASTER_DEFAULT_DB: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster\\memorymaster.db"
+      MEMORYMASTER_WORKSPACE: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster"
+
+prompt: |
+  Look-ahead protocol — execute these steps in order, briefly:
+
+  1. Read `vault/active_tasks.md` (or `active_tasks.md` at project root). Extract the FIRST task whose YAML block has `status: in_progress` (fall back to first `status: pending` if no in_progress). The task title is the markdown header text; the narrative is the body below the YAML block.
+
+  2. Call the `mcp__memorymaster__query_for_task` tool with:
+       - task_description = "<title>. <first 200 chars of narrative>"
+       - project_scope = "" (empty — let MM auto-derive from workspace)
+     Return the `briefing` field VERBATIM (it's already an XML envelope).
+
+  3. Now handle the user's actual task using that briefing as context:
+       {{ user_task }}
+
+  Output format: print the `[Look-ahead briefing]` block first (the verbatim briefing from step 2), then your work on the user's task.
