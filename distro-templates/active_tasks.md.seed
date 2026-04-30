@@ -1,0 +1,17 @@
+## T-000 - orchestra-goose seed
+```yaml
+status: completed
+owner: orchestra-goose-bootstrap
+created_at: <ISO timestamp>
+```
+
+Initial seed entry written by orchestra-goose during onboarding. Replace with real tasks as work begins.
+
+## T-001 - orchestra-goose migration prep
+```yaml
+status: in_progress
+owner: orchestra-goose-bootstrap
+dispatched_at: <ISO timestamp>
+```
+
+Wave 7 prep: migrate this project from the Claude Code stack to orchestra-goose. See `orchestra-goose/WAVE7_PROJECT_CHECKLIST.md` for steps. Tom-briefing fires for this scope when active.
