@@ -1,73 +1,69 @@
 #!/usr/bin/env node
 /**
- * wezbridge-compat — MCP shim that exposes the legacy wezbridge tool
- * surface and routes calls to Goose's built-in `orchestrator` extension
- * via goosed's REST/WS API.
+ * wezbridge-compat — MCP-to-MCP translation shim.
  *
- * Wave 5.5 of the orchestra-goose migration. Lets existing code (other
- * projects' .mcp.json files, automation scripts, peer-pane orchestration
- * recipes) keep calling wezbridge MCP tools unchanged during the
- * transition. Once Wave 7 dogfood completes, remove the wezbridge MCP
- * entry from clients and this shim is no longer needed.
+ * Speaks the legacy wezbridge tool surface to upstream callers, and
+ * delegates to goose's built-in `orchestrator` MCP extension (which
+ * goose exposes via `goose mcp orchestrator` as an stdio child).
  *
- * Tool surface (MUST match legacy wezbridge MCP exactly):
- *   - discover_sessions(only_claude=true)
- *   - read_output(pane_id, lines=100)
- *   - send_prompt(pane_id, text)
- *   - send_key(pane_id, key)
- *   - spawn_session(cwd, persona?)
- *   - wait_for_idle(pane_id, timeout_ms=30000)
+ * Wave 5.5 of orchestra-goose. Lets existing code (other projects'
+ * .mcp.json files) keep calling wezbridge MCP tools unchanged during
+ * the transition. Once Wave 7 dogfood completes, projects update
+ * their MCP configs to use mcp__orchestrator__* directly and this
+ * shim retires.
  *
- * Routing:
- *   wezbridge.discover_sessions  -> goosed GET /sessions (or orchestrator extension)
- *   wezbridge.read_output         -> goosed GET /sessions/<id>/transcript
- *   wezbridge.send_prompt         -> goosed POST /sessions/<id>/messages
- *   wezbridge.send_key            -> goosed POST /sessions/<id>/messages (text only — no raw keystrokes in goose)
- *   wezbridge.spawn_session       -> goosed POST /sessions
- *   wezbridge.wait_for_idle       -> poll goosed GET /sessions/<id> until status='idle'
+ * 2026-04-29 rewrite: previous version assumed goosed exposed REST,
+ * which is wrong (it's ACP-over-WS). The proper integration is
+ * MCP-to-MCP: this shim is itself an MCP server, and it spawns
+ * `goose mcp orchestrator` as a child MCP server, then forwards
+ * tool calls.
  *
- * GOOSED endpoint:
- *   - Default 127.0.0.1:3284 (per `goose serve --help` 2026-04-29; mm-3457)
- *   - Override via env GOOSED_URL (e.g. http://127.0.0.1:9999)
- *
- * NOTE: send_key has limited fidelity in goose. Goose subagent sessions
- * don't expose raw PTY keystrokes; we map "enter" to "submit current
- * message" semantics, "ctrl+c" to "interrupt session", and reject
- * arbitrary keys with a clear error. This is a deliberate downgrade
- * documented in MIGRATION_MAPPING.md.
+ * Tool mapping:
+ *   wezbridge.discover_sessions(only_claude)
+ *     -> orchestrator.list_sessions(filter_type)
+ *   wezbridge.read_output(pane_id, lines)
+ *     -> orchestrator.view_session(session_id, mode='first_last')
+ *   wezbridge.send_prompt(pane_id, text)
+ *     -> orchestrator.send_message(session_id, message=text)
+ *   wezbridge.send_key(pane_id, key)
+ *     -> orchestrator.interrupt_agent(session_id) when key='ctrl+c';
+ *        no-op when key='enter' (orchestrator auto-submits);
+ *        error otherwise.
+ *   wezbridge.spawn_session(cwd, persona)
+ *     -> orchestrator.start_agent(working_directory=cwd, ...)
+ *   wezbridge.wait_for_idle(pane_id, timeout_ms)
+ *     -> poll orchestrator.list_sessions, look for status='idle'
  */
 
 const { Server } = require("@modelcontextprotocol/sdk/server/index.js");
 const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio.js");
+const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
+const { StdioClientTransport } = require("@modelcontextprotocol/sdk/client/stdio.js");
 const {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } = require("@modelcontextprotocol/sdk/types.js");
 
-const GOOSED_URL = process.env.GOOSED_URL || "http://127.0.0.1:3284";
+const GOOSE_BIN = process.env.GOOSE_BIN || `${process.env.USERPROFILE}\\.local\\bin\\goose.exe`;
 
 const TOOLS = [
   {
     name: "discover_sessions",
-    description: "List active goose sessions (legacy wezbridge tool name; routed via goosed orchestrator API).",
+    description: "Legacy wezbridge tool — routed to orchestrator.list_sessions.",
     inputSchema: {
       type: "object",
       properties: {
-        only_claude: {
-          type: "boolean",
-          description: "If true, only sessions whose provider is claude-acp/anthropic. Default true.",
-          default: true,
-        },
+        only_claude: { type: "boolean", default: true },
       },
     },
   },
   {
     name: "read_output",
-    description: "Read scrollback / transcript from an active goose session.",
+    description: "Legacy wezbridge tool — routed to orchestrator.view_session.",
     inputSchema: {
       type: "object",
       properties: {
-        pane_id: { type: "string", description: "Goose session id (legacy: pane_id)." },
+        pane_id: { type: "string" },
         lines: { type: "integer", default: 100 },
       },
       required: ["pane_id"],
@@ -75,7 +71,7 @@ const TOOLS = [
   },
   {
     name: "send_prompt",
-    description: "Send a prompt text to a session. Equivalent of typing into the pane and pressing enter.",
+    description: "Legacy wezbridge tool — routed to orchestrator.send_message.",
     inputSchema: {
       type: "object",
       properties: {
@@ -87,31 +83,31 @@ const TOOLS = [
   },
   {
     name: "send_key",
-    description: "Send a control key. Goose limited mapping: 'enter' = submit, 'ctrl+c' = interrupt. Other keys rejected with error (legacy wezbridge supported raw PTY; goose does not).",
+    description: "Legacy wezbridge tool — limited support: 'ctrl+c' interrupts, 'enter' is no-op (orchestrator auto-submits), other keys rejected.",
     inputSchema: {
       type: "object",
       properties: {
         pane_id: { type: "string" },
-        key: { type: "string", description: "'enter' or 'ctrl+c' only." },
+        key: { type: "string" },
       },
       required: ["pane_id", "key"],
     },
   },
   {
     name: "spawn_session",
-    description: "Create a new goose session in the given cwd, optionally with a persona.",
+    description: "Legacy wezbridge tool — routed to orchestrator.start_agent.",
     inputSchema: {
       type: "object",
       properties: {
         cwd: { type: "string" },
-        persona: { type: "string", description: "Optional persona name; loads ~/.orchestra-goose/personas/<name>.md if present." },
+        persona: { type: "string" },
       },
       required: ["cwd"],
     },
   },
   {
     name: "wait_for_idle",
-    description: "Poll a session until it reports idle status, or timeout.",
+    description: "Legacy wezbridge tool — polls orchestrator.list_sessions for idle status.",
     inputSchema: {
       type: "object",
       properties: {
@@ -123,96 +119,88 @@ const TOOLS = [
   },
 ];
 
-/**
- * Wrap fetch calls to goosed with a consistent error envelope.
- */
-async function goosedFetch(path, init) {
-  const url = `${GOOSED_URL}${path}`;
-  let res;
+let orchestratorClient = null;
+
+async function ensureOrchestrator() {
+  if (orchestratorClient) return orchestratorClient;
+  const transport = new StdioClientTransport({
+    command: GOOSE_BIN,
+    args: ["mcp", "orchestrator"],
+  });
+  const client = new Client(
+    { name: "wezbridge-compat", version: "0.1.0" },
+    { capabilities: {} },
+  );
+  await client.connect(transport);
+  orchestratorClient = client;
+  return client;
+}
+
+async function callOrch(name, args) {
+  const client = await ensureOrchestrator();
+  const result = await client.callTool({ name, arguments: args });
+  if (result.isError) {
+    throw new Error(`orchestrator.${name} error: ${JSON.stringify(result.content)}`);
+  }
+  // result.content is array of TextContent; parse the first as JSON if possible
+  const text = (result.content || []).map((c) => c.text || "").join("");
   try {
-    res = await fetch(url, init);
-  } catch (err) {
-    throw new Error(`goosed unreachable at ${url}: ${err.message}. Check that the goosed Windows service is Running.`);
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
   }
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`goosed ${init?.method || "GET"} ${path} -> ${res.status}: ${text.slice(0, 300)}`);
-  }
-  return res;
 }
 
 async function callTool(name, args) {
   switch (name) {
     case "discover_sessions": {
-      const onlyClaude = args.only_claude !== false;
-      const res = await goosedFetch("/sessions");
-      const data = await res.json();
-      const sessions = Array.isArray(data) ? data : data.sessions || [];
-      const filtered = onlyClaude
-        ? sessions.filter((s) => /claude|anthropic/i.test(s.provider || ""))
-        : sessions;
-      return { sessions: filtered };
+      const data = await callOrch("list_sessions", {});
+      return data;
     }
-
     case "read_output": {
-      const { pane_id, lines = 100 } = args;
-      const res = await goosedFetch(`/sessions/${encodeURIComponent(pane_id)}/transcript?limit=${lines}`);
-      const data = await res.json();
-      return { pane_id, output: data.transcript || data.output || "", lines };
-    }
-
-    case "send_prompt": {
-      const { pane_id, text } = args;
-      const res = await goosedFetch(`/sessions/${encodeURIComponent(pane_id)}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "user", content: text }),
+      const data = await callOrch("view_session", {
+        session_id: args.pane_id,
+        mode: "first_last",
       });
-      const data = await res.json();
-      return { pane_id, message_id: data.id, status: "sent" };
+      return data;
     }
-
+    case "send_prompt": {
+      const data = await callOrch("send_message", {
+        session_id: args.pane_id,
+        message: args.text,
+      });
+      return data;
+    }
     case "send_key": {
-      const { pane_id, key } = args;
-      const k = String(key).toLowerCase().trim();
+      const k = String(args.key || "").toLowerCase().trim();
       if (k === "enter") {
-        // goose's REST API auto-submits messages on POST, so 'enter' is a no-op idempotent.
-        return { pane_id, key, status: "noop (goose auto-submits on send_prompt)" };
+        return { pane_id: args.pane_id, status: "noop (orchestrator auto-submits)" };
       }
       if (k === "ctrl+c") {
-        const res = await goosedFetch(`/sessions/${encodeURIComponent(pane_id)}/interrupt`, { method: "POST" });
-        const data = await res.json().catch(() => ({}));
-        return { pane_id, key, status: "interrupted", ...data };
+        const data = await callOrch("interrupt_agent", { session_id: args.pane_id });
+        return data;
       }
-      throw new Error(`send_key: only 'enter' and 'ctrl+c' supported in goose. Legacy wezbridge raw PTY keystrokes are not portable. Got: ${key}`);
+      throw new Error(`send_key: only 'enter' and 'ctrl+c' supported (got: ${args.key})`);
     }
-
     case "spawn_session": {
-      const { cwd, persona } = args;
-      const res = await goosedFetch("/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cwd, persona: persona || "general" }),
+      const data = await callOrch("start_agent", {
+        working_directory: args.cwd,
+        ...(args.persona ? { persona: args.persona } : {}),
       });
-      const data = await res.json();
-      return { pane_id: data.id || data.session_id, cwd, persona: persona || "general" };
+      return data;
     }
-
     case "wait_for_idle": {
-      const { pane_id, timeout_ms = 30000 } = args;
-      const deadline = Date.now() + timeout_ms;
-      const interval = 500;
+      const deadline = Date.now() + (args.timeout_ms || 30000);
       while (Date.now() < deadline) {
-        const res = await goosedFetch(`/sessions/${encodeURIComponent(pane_id)}`);
-        const data = await res.json();
-        if (data.status === "idle" || data.is_idle === true) {
-          return { pane_id, status: "idle", elapsed_ms: timeout_ms - (deadline - Date.now()) };
+        const data = await callOrch("list_sessions", {});
+        const session = (data.sessions || []).find((s) => s.id === args.pane_id);
+        if (session && (session.status === "idle" || session.is_idle)) {
+          return { pane_id: args.pane_id, status: "idle" };
         }
-        await new Promise((r) => setTimeout(r, interval));
+        await new Promise((r) => setTimeout(r, 500));
       }
-      return { pane_id, status: "timeout", timeout_ms };
+      return { pane_id: args.pane_id, status: "timeout" };
     }
-
     default:
       throw new Error(`unknown tool: ${name}`);
   }
@@ -239,9 +227,14 @@ async function main() {
     }
   });
 
+  process.on("SIGTERM", async () => {
+    if (orchestratorClient) await orchestratorClient.close().catch(() => {});
+    process.exit(0);
+  });
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  process.stderr.write(`[wezbridge-compat] connected. routing to ${GOOSED_URL}\n`);
+  process.stderr.write(`[wezbridge-compat] connected. delegating to: ${GOOSE_BIN} mcp orchestrator\n`);
 }
 
 main().catch((err) => {

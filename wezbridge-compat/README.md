@@ -67,22 +67,31 @@ This shim is REMOVED when:
 
 At that point, delete `wezbridge-compat/` from the fork and the entry from any remaining MCP configs.
 
-## Status — KNOWN BROKEN, NEEDS REWRITE
+## Status — REWRITTEN 2026-04-29 (MCP-to-MCP delegation)
 
-Runtime probe of goosed `:3284` on 2026-04-29 revealed:
+Initial version assumed goosed exposed REST. That was wrong (goosed speaks ACP-over-WebSocket). Probe of `:3284` confirmed only `/health` returns 200.
 
-```
-GET /          -> 404
-GET /sessions  -> 404
-GET /health    -> 200  (only working endpoint)
-```
+**Rewrite (current):** the shim is now an MCP-to-MCP translator. It speaks the legacy wezbridge tool names to upstream callers, and delegates to goose's built-in `orchestrator` extension by spawning `goose mcp orchestrator` as a child stdio MCP server.
 
-**The endpoints this shim was written against don't exist.** goosed exposes the ACP (Agent Client Protocol) over WebSocket upgrades, not a REST sessions API. The shim needs an architectural rewrite:
+The orchestrator extension's actual tools (verified by reading `crates/goose/src/agents/platform_extensions/orchestrator.rs` line 572):
 
-1. Use a WebSocket client library (`ws` for Node).
-2. Implement the ACP message envelope: handshake, send-prompt, list-sessions, read-transcript, etc.
-3. Map legacy wezbridge calls onto ACP messages.
+- `list_sessions` (filter optional)
+- `view_session` (mode: first_last | summarize)
+- `start_agent` (working_directory, model_override, etc.)
+- `send_message` (session_id, message)
+- `interrupt_agent` (session_id)
 
-**Until rewritten, this shim does NOT work against real goosed.** Existing projects' `.mcp.json` references should keep pointing at the legacy wezbridge MCP until the ACP-based shim lands.
+Mapping table:
 
-Tracked as Wave 5 follow-up. The `mcp__orchestrator__*` tools (built into goose's `orchestrator` extension) are the recommended interface for new code — they speak ACP natively.
+| Legacy wezbridge | → orchestrator |
+|---|---|
+| `discover_sessions(only_claude)` | `list_sessions()` |
+| `read_output(pane_id, lines)` | `view_session(session_id, mode='first_last')` |
+| `send_prompt(pane_id, text)` | `send_message(session_id, message=text)` |
+| `send_key(pane_id, 'enter')` | no-op (orchestrator auto-submits on `send_message`) |
+| `send_key(pane_id, 'ctrl+c')` | `interrupt_agent(session_id)` |
+| `send_key(pane_id, other)` | error — raw PTY keystrokes not supported |
+| `spawn_session(cwd, persona)` | `start_agent(working_directory=cwd, ...)` |
+| `wait_for_idle(pane_id, timeout_ms)` | poll `list_sessions` for status='idle' |
+
+Validated empirically: shim starts cleanly, responds to MCP `initialize` request, and successfully spawns `goose mcp orchestrator` as a child. End-to-end tool routing untested until a project actually wires the shim into its `.mcp.json` — first such test will be on wezbridge during Wave 7 dogfood.
