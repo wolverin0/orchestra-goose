@@ -20,7 +20,7 @@ function Skip($msg) { Write-Host "[skip] $msg" -ForegroundColor Yellow }
 function Ok($msg) { Write-Host "[ok] $msg" -ForegroundColor Green }
 
 Step "Migrating $projectName at $ProjectPath"
-if ($DryRun) { Step "DRY RUN — no writes" }
+if ($DryRun) { Step "DRY RUN - no writes" }
 
 # 1. Pre-flight
 if (-not (Test-Path "$ProjectPath\.git")) {
@@ -97,7 +97,7 @@ if (-not $DryRun) {
 # 6. Final status
 Step "Migration complete for $projectName"
 Step "Next steps:"
-Write-Host "  - Edit $projectToml — set monitoring.escalation_channel if you want Telegram"
+Write-Host "  - Edit $projectToml to set monitoring.escalation_channel if you want Telegram"
 Write-Host "  - Replace seed tasks in vault/active_tasks.md with real work as it begins"
 Write-Host "  - Remove the legacy monitoring.md once you confirm the new flow works"
-Write-Host "  - Verify with: goose run -t 'what is the active task' (cwd this project)"
+Write-Host "  - Verify with: goose run -t 'what is the active task' from the project cwd"
