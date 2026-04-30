@@ -1,0 +1,26 @@
+version: "1.0.0"
+title: GitNexus Stale Index Check
+description: "Tier-B scheduled recipe — checks whether the project's GitNexus index is older than HEAD commit, and prints a one-line warning if so. Replaces the PostToolUse half of legacy gitnexus-hook.cjs (which detected staleness after git mutations)."
+
+extensions:
+  - type: builtin
+    name: developer
+
+prompt: |
+  Check GitNexus index freshness in the current project.
+
+  Steps:
+
+  1. Verify .gitnexus/ directory exists at project root. If not, exit silently (no GN indexed for this project).
+
+  2. Get the HEAD commit timestamp via `git log -1 --format=%ct`.
+
+  3. Get the .gitnexus/ directory's most recent file mtime via shell or filesystem walk.
+
+  4. Compare:
+     - If HEAD is more than 6 hours newer than .gitnexus/, print: "[gitnexus-stale] index is N hours behind HEAD — run 'gitnexus index' to refresh"
+     - Else: print "[gitnexus-stale] OK"
+
+  5. Output one line. Do NOT auto-reindex (that's a user decision; reindex can take 1-10 min depending on repo size).
+
+  Conservative threshold: 6 hours, not 1 minute. Reindexing every commit is overkill; once per workday is enough for most signals to stay useful.
