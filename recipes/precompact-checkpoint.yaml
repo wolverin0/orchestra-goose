@@ -1,0 +1,26 @@
+version: "1.0.0"
+title: PreCompact Checkpoint
+description: "Tier-B scheduled recipe — runs MM compact_memory with safe defaults to keep the claims DB lean. Replaces legacy memorymaster-precompact.py (which fired on CC's PreCompact hook). Run via goose schedule daily or manually before long sessions."
+
+extensions:
+  - type: builtin
+    name: developer
+  - type: stdio
+    name: memorymaster
+    cmd: python
+    args: ["-m", "memorymaster.mcp_server"]
+    envs:
+      MEMORYMASTER_DEFAULT_DB: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster\\memorymaster.db"
+      MEMORYMASTER_WORKSPACE: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster"
+
+prompt: |
+  Periodic memory housekeeping. Two-step:
+
+  1. Call mcp__memorymaster__compact_memory with retain_days=30, event_retain_days=60.
+     Returns counts of claims pruned vs retained.
+
+  2. If the response indicates >100 claims pruned, also call mcp__memorymaster__run_cycle with min_citations=1, min_score=0.58, with_compact=false (compact already done in step 1).
+
+  Output one line: "[precompact] pruned=<N> retained=<M> cycle_run=<bool>".
+
+  Idempotent: safe to run multiple times. If MM is busy or DB locked, the call returns an error — log it but don't crash.

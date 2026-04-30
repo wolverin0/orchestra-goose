@@ -1,0 +1,28 @@
+version: "1.0.0"
+title: Classify Prompt
+description: "Wrap memorymaster.classify_query for use as a goose pre-prompt classifier. Tier-A port of legacy memorymaster-classify.py hook. Output is a 1-line route hint that gets injected into context (via tom-extension or recipe instructions)."
+
+extensions:
+  - type: builtin
+    name: developer
+  - type: stdio
+    name: memorymaster
+    cmd: python
+    args: ["-m", "memorymaster.mcp_server"]
+    envs:
+      MEMORYMASTER_DEFAULT_DB: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster\\memorymaster.db"
+      MEMORYMASTER_WORKSPACE: "G:\\_OneDrive\\OneDrive\\Desktop\\Py Apps\\memorymaster"
+
+parameters:
+  - key: query
+    input_type: string
+    requirement: required
+    description: The user prompt or task description to classify.
+
+prompt: |
+  Call mcp__memorymaster__classify_query with the query: {{ query }}
+
+  Output ONLY a single line:
+    [classify] type=<query_type> mode=<recommended_retrieval_mode>
+
+  Used by orchestrators to decide which retrieval strategy to apply. Do not call other tools, do not explain.

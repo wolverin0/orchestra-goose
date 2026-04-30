@@ -1,0 +1,23 @@
+version: "1.0.0"
+title: GitNexus Suggest
+description: "Tier-A recipe-instructions port of legacy gitnexus-hook.cjs. Reminds the model to consult GitNexus before broad code searches. Compose with --sub-recipe alongside other recipes."
+
+extensions:
+  - type: stdio
+    name: gitnexus
+    cmd: npx
+    args: ["-y", "gitnexus", "mcp"]
+    timeout: 60
+
+prompt: |
+  Code intelligence reminder, applied before any broad code search:
+
+  Before you Grep/Glob/find across this project for symbols, functions, or call relationships, FIRST consult GitNexus:
+  - mcp__gitnexus__query for natural-language code questions
+  - mcp__gitnexus__impact for "what breaks if I change X?"
+  - mcp__gitnexus__context for symbol details + dependencies
+  - mcp__gitnexus__cypher for graph queries on the indexed structure
+
+  GitNexus is faster + more accurate than raw search for code-relationship questions because it operates on a pre-built call graph. Only fall back to Grep/Glob if GitNexus returns nothing useful or the index is stale.
+
+  This is a Tier-A reminder — model honors it via instruction discipline. Compose with other recipes via --sub-recipe.

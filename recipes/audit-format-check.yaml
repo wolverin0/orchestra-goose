@@ -1,0 +1,27 @@
+version: "1.0.0"
+title: Audit Format Check
+description: "Tier-B scheduled recipe — scans audit/ for format consistency (header levels, table structure, fenced code blocks). Replaces legacy post-audit-format-check.py (PostToolUse on Write). Read-only; reports issues, never modifies."
+
+extensions:
+  - type: builtin
+    name: developer
+
+prompt: |
+  Validate format consistency in audit/ directory. Read-only check.
+
+  Per-file checks under audit/*.md:
+  1. H1 (single # at start) only at top of file; no H1 elsewhere.
+  2. H2 (##) headers under H1 — for finding headers (F-N.M).
+  3. No mixed indent (tabs + spaces in same block).
+  4. Fenced code blocks (```lang) all close with matching ```.
+  5. Tables have consistent column count per row.
+  6. No trailing whitespace on lines.
+
+  Output:
+  ```
+  audit-format-check: <count> files scanned, <ok> clean, <issues> with format problems
+  ```
+
+  Per issue: "  ! audit/<file>:<line> <issue-description>".
+
+  Non-blocking — purely informational. Use the auto-fix recipe (TBD) if you want auto-correction.

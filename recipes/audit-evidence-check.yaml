@@ -1,0 +1,28 @@
+version: "1.0.0"
+title: Audit Evidence Check
+description: "Tier-B scheduled recipe — scans audit/ directory under current project for evidence-rule violations (claims without citations, findings without severity, etc.). Replaces legacy pre-audit-evidence-check.py (PreToolUse on Write/Edit). Run before audit commits or as schedule."
+
+extensions:
+  - type: builtin
+    name: developer
+
+prompt: |
+  Audit the project's audit/ directory for evidence-rule compliance. Read-only.
+
+  Steps:
+
+  1. Check audit/ exists at project root. If not, exit 0 with no output (no audit work in flight).
+
+  2. For each .md file in audit/*.md (recursive):
+     a. Extract any "Finding F-N.M" headers (regex "^##\s+F-\d+\.\d+").
+     b. For each finding, verify:
+        - Has a "Severity:" line with value in {CRITICAL, HIGH, MEDIUM, LOW, INFO}
+        - Has a "Status:" line with value in {OPEN, FIXED, ACCEPTED, WONTFIX}
+        - Has at least one file-and-line reference like "src/foo.ts:42" OR "Evidence:" block
+     c. Flag missing fields per finding.
+
+  3. Output table:
+     "audit-evidence: <count> findings scanned, <pass> compliant, <fail> with issues"
+     Then for each fail, one line: "  ! audit/<file>:<line>: F-X.Y missing <field>"
+
+  Conservative: only flags explicit violations of the 3 rules. Does not enforce style or wording.
