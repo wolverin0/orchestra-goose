@@ -1,0 +1,65 @@
+name: Orchestra Fork Guard
+
+# This workflow runs only in the orchestra-goose fork. It exists so the
+# fork's Actions tab has a clear, succeeding workflow regardless of how
+# the upstream release-targeting workflows behave.
+#
+# Strategy: rather than disable upstream workflows (we want to keep
+# pulling them when we sync from upstream), this workflow just signals
+# "fork health is OK" with a green check on every push.
+#
+# Upstream's release/publish workflows will fail in our fork (no NPM
+# token, no Block GH org access). That is EXPECTED. Filter the Actions
+# tab by workflow name when reviewing fork CI status.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  fork-guard:
+    if: github.repository == 'wolverin0/orchestra-goose'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate orchestra recipes
+        run: |
+          set -e
+          echo "validating recipes/*.yaml are syntactically valid YAML"
+          # We don't have goose CLI in the runner, but yq + Python YAML can
+          # at least catch parse errors. Real recipe validation runs locally.
+          for f in recipes/*.yaml; do
+            python3 -c "import yaml,sys; yaml.safe_load(open('$f'))" || exit 1
+            echo "  ok: $f"
+          done
+
+      - name: Validate distro templates exist
+        run: |
+          test -f FORK_ANCESTRY.md
+          test -f ORCHESTRA_DISTRO.md
+          test -f MIGRATION_MAPPING.md
+          test -f distro-templates/orchestra-config.yaml
+          test -f distro-templates/project.toml.example
+          test -f distro-templates/active_tasks.md.seed
+          echo "all distro artifacts present"
+
+      - name: Validate wezbridge-compat package
+        run: |
+          test -f wezbridge-compat/package.json
+          test -f wezbridge-compat/index.cjs
+          node --check wezbridge-compat/index.cjs
+
+      - name: Show divergence summary from upstream
+        run: |
+          git remote add upstream https://github.com/aaif-goose/goose.git || true
+          git fetch upstream main --depth=1 || true
+          if git rev-parse upstream/main >/dev/null 2>&1; then
+            ahead=$(git rev-list --count upstream/main..HEAD 2>/dev/null || echo "?")
+            echo "ahead of upstream by: $ahead commits"
+          else
+            echo "upstream not fetched"
+          fi
