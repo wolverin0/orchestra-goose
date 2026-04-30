@@ -67,6 +67,22 @@ This shim is REMOVED when:
 
 At that point, delete `wezbridge-compat/` from the fork and the entry from any remaining MCP configs.
 
-## Status
+## Status — KNOWN BROKEN, NEEDS REWRITE
 
-**Untested at runtime.** Goose REST API endpoint shapes (`/sessions`, `/sessions/<id>/messages`, etc.) are inferred from the goose 1.33.1 README + `goose serve --help`. First real test happens when a project's MCP config is wired through this shim. Expect to discover ≥1 endpoint shape mismatch and patch in a follow-up commit.
+Runtime probe of goosed `:3284` on 2026-04-29 revealed:
+
+```
+GET /          -> 404
+GET /sessions  -> 404
+GET /health    -> 200  (only working endpoint)
+```
+
+**The endpoints this shim was written against don't exist.** goosed exposes the ACP (Agent Client Protocol) over WebSocket upgrades, not a REST sessions API. The shim needs an architectural rewrite:
+
+1. Use a WebSocket client library (`ws` for Node).
+2. Implement the ACP message envelope: handshake, send-prompt, list-sessions, read-transcript, etc.
+3. Map legacy wezbridge calls onto ACP messages.
+
+**Until rewritten, this shim does NOT work against real goosed.** Existing projects' `.mcp.json` references should keep pointing at the legacy wezbridge MCP until the ACP-based shim lands.
+
+Tracked as Wave 5 follow-up. The `mcp__orchestrator__*` tools (built into goose's `orchestrator` extension) are the recommended interface for new code — they speak ACP natively.
